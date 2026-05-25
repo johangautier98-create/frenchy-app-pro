@@ -12,7 +12,15 @@ module.exports = async function handler(req, res) {
   const clientSecret = process.env.BLOG_API_CLIENT_SECRET;
   const redirectUri  = 'https://frenchy-app-pro.vercel.app/api/shopify-oauth';
 
-  const { code, shop } = req.query;
+  const { code, shop, debug } = req.query;
+
+  // Debug : vérifier les env vars
+  if (debug === '1') {
+    return res.status(200).json({
+      BLOG_API_CLIENT_ID:     clientId ? `✅ défini (${clientId.substring(0,6)}...)` : '❌ MANQUANT',
+      BLOG_API_CLIENT_SECRET: clientSecret ? `✅ défini` : '❌ MANQUANT'
+    });
+  }
 
   // Étape 1 : pas encore de code → afficher le bouton d'installation
   if (!code) {
