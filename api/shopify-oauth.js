@@ -70,11 +70,26 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code })
     });
 
-    const tokenData = await tokenRes.json();
+    const rawText = await tokenRes.text();
+    let tokenData;
+    try {
+      tokenData = JSON.parse(rawText);
+    } catch(e) {
+      return res.status(400).send(`<html><body style="background:#111;color:#fff;font-family:monospace;padding:30px">
+        <h2 style="color:#f44">Erreur Shopify</h2>
+        <p>Shopify a renvoyé une réponse inattendue. L'URL de redirection n'est probablement pas configurée dans l'app.</p>
+        <p>Configure sur dev.shopify.com → app → URLs de redirection :</p>
+        <code style="color:#ff9">https://frenchy-app-pro.vercel.app/api/shopify-oauth</code>
+        <hr><pre style="font-size:11px;color:#aaa">${rawText.substring(0,500)}</pre>
+      </body></html>`);
+    }
     const token = tokenData.access_token;
 
     if (!token) {
-      return res.status(400).send(`<h1>Erreur</h1><pre>${JSON.stringify(tokenData)}</pre>`);
+      return res.status(400).send(`<html><body style="background:#111;color:#fff;font-family:monospace;padding:30px">
+        <h2 style="color:#f44">Token non obtenu</h2>
+        <pre>${JSON.stringify(tokenData, null, 2)}</pre>
+      </body></html>`);
     }
 
     return res.status(200).send(`<!DOCTYPE html>
