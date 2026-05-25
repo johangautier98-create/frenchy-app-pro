@@ -1,0 +1,146 @@
+-- ═══════════════════════════════════════════════════════════════
+-- Frenchy Leurres — Setup Supabase B2B
+-- À coller et exécuter dans : Supabase → SQL Editor → New Query
+-- ═══════════════════════════════════════════════════════════════
+
+
+-- ────────────────────────────────────────────────────────────────
+-- 1. TABLE : compta_documents
+--    Utilisée par comptabilite.js pour dépenses, recettes, CA, etc.
+-- ────────────────────────────────────────────────────────────────
+create table if not exists public.compta_documents (
+  id            uuid primary key default gen_random_uuid(),
+  date_doc      date default current_date,
+  type_doc      text default 'depense',         -- depense | recette | liquide_b | ca_historique | avoir
+  fournisseur   text,
+  categorie     text,
+  montant_ttc   numeric default 0,
+  paiement      text,                           -- cb | paypal | stripe | virement | especes | depot_banque
+  notes         text,
+  fichier_nom   text,
+  fichier_url   text,
+  fichier_path  text,
+  statut        text default 'classe',
+  source        text default 'manuel',          -- manuel | ocr | mobile
+  created_at    timestamp default now()
+);
+
+-- Sécurité : activer RLS (obligatoire sur Supabase)
+alter table public.compta_documents enable row level security;
+
+-- Politique : accès libre en lecture/écriture via la clé anon publique
+-- ⚠️ Pour la prod future, remplacer par une politique liée à auth.uid()
+create policy if not exists "compta_documents_public_access"
+  on public.compta_documents
+  for all
+  using (true)
+  with check (true);
+
+
+-- ────────────────────────────────────────────────────────────────
+-- 2. TABLE : pro_clients (si elle n'existe pas encore)
+--    Utilisée par comptes-pro.js
+-- ────────────────────────────────────────────────────────────────
+create table if not exists public.pro_clients (
+  id                  uuid primary key default gen_random_uuid(),
+  nom_magasin         text not null,
+  nom_responsable     text,
+  email               text,
+  telephone           text,
+  siret               text,
+  adresse             text,
+  tva                 text,
+  type_client         text default 'pro',       -- pro | cabesto | vip
+  statut              text default 'en_attente',-- en_attente | valide | refuse
+  notes               text,
+  mode_paiement       text,
+  stripe_customer_id  text,
+  shopify_customer_id text,
+  rib_stripe_valide   boolean default false,
+  plafond_credit      numeric default 0,
+  created_at          timestamp default now()
+);
+
+alter table public.pro_clients enable row level security;
+
+create policy if not exists "pro_clients_public_access"
+  on public.pro_clients
+  for all
+  using (true)
+  with check (true);
+
+
+-- ────────────────────────────────────────────────────────────────
+-- 3. TABLE : orders (commandes B2B)
+-- ────────────────────────────────────────────────────────────────
+create table if not exists public.orders (
+  id               uuid primary key default gen_random_uuid(),
+  client_id        uuid references public.pro_clients(id) on delete set null,
+  total            numeric default 0,
+  statut           text default 'en_attente',   -- en_attente | valide | expediee | annulee
+  shopify_order_id text,
+  created_at       timestamp default now()
+);
+
+alter table public.orders enable row level security;
+
+create policy if not exists "orders_public_access"
+  on public.orders
+  for all
+  using (true)
+  with check (true);
+
+
+-- ────────────────────────────────────────────────────────────────
+-- 4. TABLE : order_items (lignes de commande)
+-- ────────────────────────────────────────────────────────────────
+create table if not exists public.order_items (
+  id             uuid primary key default gen_random_uuid(),
+  order_id       uuid references public.orders(id) on delete cascade,
+  produit        text,
+  quantite       integer default 1,
+  prix_unitaire  numeric default 0
+);
+
+alter table public.order_items enable row level security;
+
+create policy if not exists "order_items_public_access"
+  on public.order_items
+  for all
+  using (true)
+  with check (true);
+
+
+-- ────────────────────────────────────────────────────────────────
+-- 5. TABLE : scheduled_payments (paiements différés)
+--    Si déjà créée, ce bloc sera ignoré grâce au "if not exists"
+-- ────────────────────────────────────────────────────────────────
+create table if not exists public.scheduled_payments (
+  id            uuid primary key default gen_random_uuid(),
+  client_id     uuid references public.pro_clients(id) on delete set null,
+  order_id      uuid references public.orders(id) on delete set null,
+  montant       numeric default 0,
+  date_echeance date,
+  statut        text default 'en_attente',      -- en_attente | paye | annule
+  mode          text default 'virement',        -- virement | cb | sepa
+  notes         text,
+  created_at    timestamp default now()
+);
+
+alter table public.scheduled_payments enable row level security;
+
+create policy if not exists "scheduled_payments_public_access"
+  on public.scheduled_payments
+  for all
+  using (true)
+  with check (true);
+
+
+-- ────────────────────────────────────────────────────────────────
+-- ✅ VÉRIFICATION FINALE — après exécution
+-- Colle cette requête seule pour contrôler que tout existe :
+-- ────────────────────────────────────────────────────────────────
+-- select table_name
+-- from information_schema.tables
+-- where table_schema = 'public'
+-- order by table_name;

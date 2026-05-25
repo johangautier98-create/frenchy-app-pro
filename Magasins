@@ -1,0 +1,176 @@
+// MAGASINS.JS v4 — chargement direct via safeRender
+;(function(){
+'use strict';
+var _all=[], _loaded=false;
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function gv(id){var e=document.getElementById(id);return e?e.value.trim():'';}
+function sv(id,v){var e=document.getElementById(id);if(e)e.value=v||'';}
+function $(id){return document.getElementById(id);}
+function se(id,v){var e=$(id);if(e)e.textContent=v;}
+
+async function load(){
+  /* 1. Base statique CLIENTS_DB */
+  var base=[];
+  try{
+    if(typeof CLIENTS_DB!=='undefined'){
+      base=CLIENTS_DB.map(function(c,i){
+        return{id:'s'+i,nom:c.name||'',type:c.type||'magasin',
+          tel:c.phone||'',email:c.email||'',
+          adresse:(c.address||'').replace(/\n/g,' '),
+          dept:((c.address||'').match(/\b(\d{5})\b/)||['',''])[1].slice(0,2),
+          statut:'valide',src:'static'};
+      });
+    }
+  }catch(e){console.warn('CLIENTS_DB:',e);}
+
+  /* 2. Supabase pro_clients */
+  var sb=[];
+  try{
+    var db=window.db;
+    if(db){
+      var r=await db.from('pro_clients').select('*').order('nom_magasin',{ascending:true});
+      if(!r.error&&r.data){
+        sb=r.data.map(function(c){
+          return{id:c.id,nom:c.nom_magasin||'',type:c.type_client||'magasin',
+            tel:c.telephone||'',email:c.email||'',
+            adresse:c.adresse||'',dept:c.dept||'',
+            siret:c.siret||'',tva:c.tva||'',notes:c.notes||'',
+            statut:c.statut||'en_attente',src:'supabase'};
+        });
+      }
+    }
+  }catch(e){console.warn('Supabase magasins:',e);}
+
+  /* 3. Fusion */
+  var sbNoms=sb.map(function(c){return c.nom.toLowerCase();});
+  var staticOnly=base.filter(function(c){return sbNoms.indexOf(c.nom.toLowerCase())===-1;});
+  _all=sb.concat(staticOnly).sort(function(a,b){return a.nom.localeCompare(b.nom,'fr');});
+
+  render();
+  se('mgKpiTotal',_all.length);
+  se('mgKpiMag',_all.filter(function(m){return m.type!=='cabesto';}).length);
+  se('mgKpiCab',_all.filter(function(m){return m.type==='cabesto';}).length);
+  buildDeptFilter();
+  _loaded=true;
+}
+window._mgLoad=function(){_loaded=false;load();};
+
+function buildDeptFilter(){
+  var sel=$('mgDeptFilter');if(!sel)return;
+  var depts=[];
+  _all.forEach(function(m){if(m.dept&&depts.indexOf(m.dept)<0)depts.push(m.dept);});
+  depts.sort();
+  sel.innerHTML='<option value="">Tous départements</option>'
+    +depts.map(function(d){return'<option value="'+d+'">Dép. '+d+'</option>';}).join('');
+}
+
+function render(){
+  var q=(gv('mgSearch')||'').toLowerCase();
+  var ft=gv('mgTypeFilter')||'';
+  var fd=gv('mgDeptFilter')||'';
+  var arr=_all.filter(function(m){
+    if(ft&&m.type!==ft)return false;
+    if(fd&&m.dept!==fd)return false;
+    if(q){if(![m.nom,m.email,m.tel,m.adresse,m.dept].join(' ').toLowerCase().includes(q))return false;}
+    return true;
+  });
+  var el=$('mgList');if(!el)return;
+  if(!arr.length){el.innerHTML='<div style="text-align:center;padding:40px;color:#777;font-size:13px">Aucun magasin pour ce filtre.</div>';return;}
+  el.innerHTML=arr.map(function(m){
+    var sid=String(m.id).replace(/'/g,'');
+    var isSupabase=m.src==='supabase';
+    var typeLbl=m.type==='cabesto'?'🔗 Cabesto':'🏪 Magasin';
+    var statutBadge=m.statut==='valide'?'<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:999px;padding:2px 8px;font-weight:700">✅ Facturation</span>':'';
+    return '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:12px 16px;border-bottom:1px solid #e8e6e0;gap:10px">'
+      +'<div style="min-width:0">'
+      +'<div style="font-weight:800;font-size:14px;color:#1a1a1a;margin-bottom:3px">'+esc(m.nom)+' <span style="font-size:11px;color:#777;font-weight:500">'+typeLbl+'</span>'+statutBadge+'</div>'
+      +'<div style="font-size:12px;color:#777;display:flex;flex-wrap:wrap;gap:10px">'
+      +(m.tel?'<span>📞 '+esc(m.tel)+'</span>':'')
+      +(m.email?'<span>✉ '+esc(m.email)+'</span>':'')
+      +(m.dept?'<span>📍 Dép. '+esc(m.dept)+'</span>':'')
+      +(m.notes?'<span>📝 '+esc(m.notes)+'</span>':'')
+      +'</div></div>'
+      +'<div style="display:flex;gap:5px;flex-shrink:0">'
+      +'<button onclick="mgUseInFactu(\''+sid+'\')" style="padding:6px 10px;background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">🧾</button>'
+      +(isSupabase?'<button onclick="mgEdit(\''+sid+'\')" style="padding:6px 10px;background:#fff;border:1px solid #e0ddd4;border-radius:7px;cursor:pointer;font-size:12px">✏️</button>':'')
+      +(isSupabase?'<button onclick="mgDeleteMag(\''+sid+'\')" style="padding:6px 10px;background:#fce8e8;color:#c62828;border:1px solid #f4a9a9;border-radius:7px;cursor:pointer;font-size:12px">🗑</button>':'')
+      +'</div></div>';
+  }).join('');
+}
+window.mgRender=render;
+
+window.mgUseInFactu=function(id){
+  var m=_all.find(function(x){return String(x.id)===String(id);});
+  if(!m)return;
+  /* Injecter dans _supabaseClients si pas déjà là */
+  window._supabaseClients=window._supabaseClients||[];
+  if(!window._supabaseClients.find(function(c){return(c.nom_magasin||'').toLowerCase()===m.nom.toLowerCase();})){
+    window._supabaseClients.push({nom_magasin:m.nom,type_client:m.type,email:m.email,telephone:m.tel,adresse:m.adresse,statut:'valide'});
+  }
+  if(typeof window.buildClientDropdowns==='function')window.buildClientDropdowns();
+  if(window.showTab)window.showTab('facturation');
+  setTimeout(function(){
+    var selId=m.type==='cabesto'?'cab-client-sel':'mag-client-sel';
+    var sel=document.getElementById(selId);
+    if(sel){var opt=Array.from(sel.options).find(function(o){return o.text===m.nom;});if(opt){sel.value=opt.value;sel.dispatchEvent(new Event('change'));}}
+  },500);
+};
+
+window.mgShowForm=function(){
+  ['mgEditId','mgNom','mgDept','mgTel','mgEmail','mgAdresse','mgAdresseFact','mgSiret','mgTva','mgNotes'].forEach(function(id){var e=$(id);if(e)e.value='';});
+  var ty=$('mgType');if(ty)ty.value='magasin';
+  var st=$('mgStatus');if(st){st.textContent='';st.style.color='';}
+  var fc=$('mgFormCol');if(fc)fc.style.display='';
+  var t=$('mgFormTitle');if(t)t.textContent='➕ Nouveau magasin';
+};
+window.mgHideForm=function(){var fc=$('mgFormCol');if(fc)fc.style.display='none';};
+
+window.mgEdit=function(id){
+  var m=_all.find(function(x){return String(x.id)===String(id);});if(!m)return;
+  sv('mgEditId',m.src==='supabase'?m.id:'');
+  sv('mgNom',m.nom);sv('mgTel',m.tel);sv('mgEmail',m.email);
+  sv('mgAdresse',m.adresse);sv('mgDept',m.dept);sv('mgNotes',m.notes||'');
+  sv('mgSiret',m.siret||'');sv('mgTva',m.tva||'');
+  var ty=$('mgType');if(ty)ty.value=m.type||'magasin';
+  var fc=$('mgFormCol');if(fc)fc.style.display='';
+  var t=$('mgFormTitle');if(t)t.textContent='✏️ '+m.nom;
+};
+
+window.mgSave=async function(){
+  var nom=gv('mgNom'),st=$('mgStatus');
+  if(!nom){if(st){st.textContent='❌ Nom obligatoire';st.style.color='#c62828';}return;}
+  var db=window.db;
+  if(!db){if(st){st.textContent='❌ Supabase non connecté';st.style.color='#c62828';}return;}
+  var payload={nom_magasin:nom,type_client:gv('mgType')||'magasin',
+    telephone:gv('mgTel'),email:gv('mgEmail'),adresse:gv('mgAdresse'),
+    siret:gv('mgSiret'),tva:gv('mgTva'),notes:gv('mgNotes'),
+    dept:gv('mgDept'),statut:'valide'};
+  if(st){st.textContent='⏳ Enregistrement…';st.style.color='#888';}
+  var eid=gv('mgEditId');
+  try{
+    var q=eid?db.from('pro_clients').update(payload).eq('id',eid).select():db.from('pro_clients').insert([payload]).select();
+    var r=await q;
+    if(r.error){if(st){st.textContent='❌ '+r.error.message;st.style.color='#c62828';}return;}
+    if(st){st.textContent='✅ Enregistré !';st.style.color='#2e7d32';}
+    var saved=r.data&&r.data[0];
+    if(saved){window._supabaseClients=window._supabaseClients||[];window._supabaseClients.push(saved);}
+    if(typeof window.buildClientDropdowns==='function')window.buildClientDropdowns();
+    setTimeout(function(){window.mgHideForm();load();},800);
+  }catch(e){if(st){st.textContent='❌ '+e.message;st.style.color='#c62828';}}
+};
+
+window.mgDeleteMag=async function(id){
+  if(!confirm('Supprimer ce magasin ?'))return;
+  var db=window.db;
+  if(db){try{await db.from('pro_clients').delete().eq('id',id);}catch(e){}}
+  _all=_all.filter(function(m){return String(m.id)!==String(id);});
+  render();se('mgKpiTotal',_all.length);
+};
+
+/* Lier les filtres */
+document.addEventListener('DOMContentLoaded',function(){
+  ['mgSearch','mgTypeFilter','mgDeptFilter'].forEach(function(id){
+    var e=$(id);if(e){e.addEventListener('input',render);e.addEventListener('change',render);}
+  });
+});
+})();

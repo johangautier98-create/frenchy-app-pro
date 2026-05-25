@@ -1,0 +1,2171 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<title>🎣 Frenchy Leurres — Application Pro</title>
+<link rel="icon" type="image/png" href="logo-app.png" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="style.css"/>
+<link rel="stylesheet" href="comptabilite.css"/>
+
+<style id="fl-lock-logo-app-style">
+  .fl-lock-logo-wrap{
+    width:150px;
+    height:150px;
+    margin:0 auto 14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .fl-lock-logo-img{
+    width:150px;
+    height:150px;
+    object-fit:contain;
+    border-radius:28px;
+    display:block;
+    box-shadow:0 10px 30px rgba(0,0,0,.18);
+  }
+  #flLockPass{
+    -webkit-text-security:disc;
+  }
+</style>
+</head>
+<body>
+<div id="fl-lock-screen" class="fl-lock-screen">
+  <div class="fl-lock-card">
+    <div class="fl-lock-logo-wrap">
+      <img src="logo-app.png" alt="Gautier Fishing Application" class="fl-lock-logo-img">
+    </div>
+    <h2>Frenchy Leurres</h2>
+    <p>Application Pro — accès protégé</p>
+    <input id="flLockPass" type="password" inputmode="numeric" placeholder="Mot de passe" autocomplete="off">
+    <button onclick="flUnlockApp()">🔐 Entrer</button>
+    <div id="flLockError"></div>
+  </div>
+</div>
+
+<script>
+/* V34 — Verrouillage application corrigé
+   Mot de passe officiel : 22 04 1981
+   Accepte aussi : 22041981, 22-04-1981, 22/04/1981, 22.04.1981 */
+(function(){
+  const FL_APP_PASSWORD_NUMERIC = "22041981";
+  function normalizePassword(value){
+    return String(value || "").replace(/[^0-9]/g, "");
+  }
+  window.flUnlockApp = function(){
+    const input = document.getElementById('flLockPass');
+    const error = document.getElementById('flLockError');
+    const screen = document.getElementById('fl-lock-screen');
+    const typed = normalizePassword(input ? input.value : '');
+    if(typed === FL_APP_PASSWORD_NUMERIC){
+      try{ sessionStorage.setItem('frenchy_app_unlocked_v34','1'); }catch(e){}
+      if(screen){ screen.classList.add('fl-unlocked'); screen.style.display='none'; }
+      if(error){ error.textContent=''; }
+      return true;
+    }
+    if(error){ error.textContent='Mot de passe incorrect'; }
+    if(input){ input.focus(); input.select(); }
+    return false;
+  };
+  window.flLockApp = function(){
+    try{ sessionStorage.removeItem('frenchy_app_unlocked_v34'); }catch(e){}
+    const screen = document.getElementById('fl-lock-screen');
+    if(screen){ screen.classList.remove('fl-unlocked'); screen.style.display='flex'; }
+  };
+  document.addEventListener('DOMContentLoaded', function(){
+    const input = document.getElementById('flLockPass');
+    const screen = document.getElementById('fl-lock-screen');
+    let already = false;
+    try{ already = sessionStorage.getItem('frenchy_app_unlocked_v34') === '1'; }catch(e){}
+    if(already && screen){ screen.classList.add('fl-unlocked'); screen.style.display='none'; }
+    if(input){
+      input.placeholder = 'Mot de passe';
+      input.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){ e.preventDefault(); window.flUnlockApp(); }
+      });
+      setTimeout(()=>input.focus(), 200);
+    }
+  });
+})();
+</script>
+
+<!-- HEADER -->
+<header id="app-header">
+  <!-- GAUCHE : bouton IA -->
+  <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+    <div id="ia-status-btn" onclick="checkIACredit()" title="Statut OpenAI — cliquer pour vérifier"
+      style="display:flex;align-items:center;gap:6px;padding:5px 13px;border-radius:999px;cursor:pointer;font-size:12px;font-weight:700;border:1.5px solid #4caf50;color:#4caf50;background:rgba(76,175,80,.12);transition:.2s;user-select:none;white-space:nowrap">
+      <span id="ia-dot" style="width:8px;height:8px;border-radius:50%;background:#4caf50;flex-shrink:0;box-shadow:0 0 6px #4caf50"></span>
+      <span id="ia-label">🟢 OpenAI</span>
+    </div>
+  </div>
+  <!-- CENTRE : titre -->
+  <h1>🎣 Frenchy <span>Leurres</span> — Application Pro</h1>
+  <!-- DROITE : file impression -->
+  <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;margin-left:auto">
+    <div id="queue-indicator" onclick="showTab('impression')">
+      🖨️ <span id="queue-count">0</span>
+    </div>
+  </div>
+</header>
+
+<!-- TABS -->
+<nav id="nav-tabs">
+  <!-- Onglets principaux — centrés sur PC -->
+  <div class="nav-main-group">
+    <button class="tab-btn active" onclick="showTab('commande')" id="tab-commande">
+      <span class="tab-icon">📋</span>Commande
+    </button>
+    <button class="tab-btn" onclick="showTab('catalogue')" id="tab-catalogue">
+      <span class="tab-icon">📦</span>Catalogue
+    </button>
+    <button class="tab-btn" onclick="showTab('impression')" id="tab-impression">
+      <span class="tab-icon">🖨️</span>Impression
+    </button>
+    <button class="tab-btn" onclick="showTab('facturation')" id="tab-facturation">
+      <span class="tab-icon">🧾</span>Facturation
+    </button>
+    <button class="tab-btn" onclick="showTab('comptes-pro')" id="tab-comptes-pro">
+      <span class="tab-icon">🏪</span>Comptes Pro
+    </button>
+    <button class="tab-btn" onclick="showTab('comptabilite')" id="tab-comptabilite">
+      <span class="tab-icon">📊</span>Comptabilité
+    </button>
+  </div>
+    <button class="tab-btn" onclick="showTab('shopify')" id="tab-shopify">
+      <span class="tab-icon">🛒</span>Shopify
+    </button>
+  </div>
+  <!-- Blog -->
+  <button class="tab-btn" onclick="showTab('blog-ravager')" id="tab-blog-ravager" style="background:linear-gradient(135deg,#8b0000,#cc2200);color:#fff;border:none;font-weight:900;letter-spacing:.5px">
+    <span class="tab-icon">✍️</span>Blog
+  </button>
+  <!-- Onglets secondaires — séparés à droite -->
+  <div class="nav-right-group">
+    <button class="tab-btn" onclick="showTab('installation')" id="tab-installation">
+      <span class="tab-icon">⚙️</span>Installation
+    </button>
+    <button class="tab-btn" onclick="showTab('guide')" id="tab-guide">
+      <span class="tab-icon">❓</span>Guide
+    </button>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════
+     PAGE : COMMANDE
+═══════════════════════════════════════════ -->
+<section class="page active" id="page-commande">
+
+  <div class="card">
+    <div class="card-title"><span class="step-badge">1</span> Importer votre commande</div>
+    <div id="drop-zone" onclick="document.getElementById('file-input').click()"
+      ondragover="event.preventDefault();this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="handleFileDrop(event)">
+      <div class="dz-icon">📂</div>
+      <div class="dz-label">Glissez ou cliquez pour importer</div>
+      <div class="dz-sub">PDF · Excel · JPEG · PNG — lecture Désignation + Qté automatique</div>
+    </div>
+    <input type="file" id="file-input" accept=".pdf,.xlsx,.xls,image/*" style="display:none" onchange="handleFileSelect(this.files[0])"/>
+    <div id="file-status" style="margin-top:8px;font-size:12px;color:var(--success);display:none;"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="step-badge">2</span> Ou tapez / collez la commande</div>
+    <textarea id="order-text" rows="6" placeholder="Exemple :
+Mistik Shad Vert Electric 9cm x6
+Frenchy Shiner Bleu Flash 9cm x12
+Super Anguillon Kaki 12cm x20
+Rouget 9cm 14g x8"></textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <div style="display:flex;align-items:center;gap:10px;background:#fff8e1;border:1px solid #f0c040;border-radius:8px;padding:8px 14px;margin-bottom:8px;">
+      <span style="font-size:13px;font-weight:700;color:#7a5800;">📦 Quantité par défaut :</span>
+      <input type="number" id="default-qty" value="1" min="1" max="999" style="width:65px;text-align:center;font-weight:700;font-size:16px;"/>
+      <span style="font-size:11px;color:#b07800;font-style:italic;">si non précisée dans la commande</span>
+    </div>
+    <button class="btn btn-accent btn-full" onclick="analyzeOrder()" id="btn-analyze">
+        🔍 Analyser la commande
+      </button>
+      <button class="btn btn-sm" onclick="document.getElementById('order-text').value='';clearResults()">🗑</button>
+    </div>
+  </div>
+
+  <div id="order-results-section" style="display:none;">
+    <div class="card">
+      <div class="card-title"><span class="step-badge">3</span> Résultats <span id="results-stats" style="margin-left:auto;font-weight:normal;font-size:11px;"></span></div>
+      <div id="order-results-list"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+        <button class="btn btn-danger" onclick="clearUnmatchedResults()">🧹 Supprimer les lignes à vérifier</button>
+        <button class="btn btn-success btn-full" onclick="validateOrderToQueue()" id="btn-add-all">
+          ✅ Valider la commande et ajouter à la file
+        </button>
+        <button class="btn btn-accent" onclick="showTab('impression')">➡️ Passer à l'impression</button>
+        <button class="btn btn-sm" onclick="openManualModal()">✏️ Ajouter manuellement</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="image-preview-section" style="display:none;">
+    <div class="card">
+      <div class="card-title">📷 Image importée — OCR automatique actif</div>
+      <img id="order-image-preview" style="max-width:100%;border-radius:6px;margin-bottom:10px;" alt=""/>
+      <div class="alert alert-info">L'image est affichée ci-dessus. Le logiciel tente de lire automatiquement uniquement la désignation et la quantité. Vérifiez toujours le tableau avant impression.</div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ═══════════════════════════════════════════
+     PAGE : CATALOGUE
+═══════════════════════════════════════════ -->
+<section class="page" id="page-catalogue">
+
+  <div class="card" style="margin-bottom:10px;padding:12px 14px;">
+    <div class="search-bar">
+      <input type="text" id="cat-search" placeholder="🔍 Rechercher par nom, couleur, taille, référence…" oninput="renderCatalogue()"/>
+      <span id="cat-count" style="font-size:12px;color:var(--muted);white-space:nowrap;"></span>
+      <button onclick="catShowAddProduit()" style="padding:7px 14px;background:var(--accent);color:var(--primary);border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap">➕ Nouveau produit</button>
+    </div>
+    <div class="filter-bar" id="filter-bar"></div>
+  </div>
+
+  <!-- Panel ajout produit (caché par défaut) -->
+  <div id="catAddPanel" style="display:none;margin-bottom:12px">
+    <div class="card" style="padding:18px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-weight:900;font-size:15px;color:var(--primary)">➕ Nouveau produit</div>
+        <button onclick="catHideAddProduit()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer">×</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Référence *</label>
+          <input id="catAddRef" placeholder="Ex: MISTIK-VE-9-12" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Famille *</label>
+          <input id="catAddFamille" placeholder="Ex: Mistik Shad" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Nom produit *</label>
+          <input id="catAddNom" placeholder="Ex: Mistik Shad" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Couleur</label>
+          <input id="catAddCouleur" placeholder="Ex: Vert Electric" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Taille</label>
+          <input id="catAddTaille" placeholder="Ex: 9 cm" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Grammage</label>
+          <input id="catAddGrammage" placeholder="Ex: 12 g" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Conditionnement</label>
+          <input id="catAddCond" placeholder="Ex: x1" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Prix HT €</label>
+          <input id="catAddHt" type="number" step="0.01" placeholder="2.60" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">PVC €</label>
+          <input id="catAddPvc" type="number" step="0.01" placeholder="6.90" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        </div>
+        <div style="grid-column:1/3">
+          <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">EAN-13 *</label>
+          <input id="catAddEan" placeholder="13 chiffres" maxlength="13" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:monospace">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Étiq. Ronde</label>
+          <select id="catAddRonde" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:#fff">
+            <option value="0">Non</option>
+            <option value="1">Oui</option>
+          </select>
+        </div>
+        <div style="grid-column:1/-1">
+          <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Notes</label>
+          <input id="catAddNotes" placeholder="Notes optionnelles" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button onclick="catSaveProduit()" style="padding:11px 20px;background:var(--accent);color:var(--primary);border:none;border-radius:9px;font-weight:900;font-size:14px;cursor:pointer">💾 Enregistrer</button>
+        <button onclick="catHideAddProduit()" style="padding:11px 14px;background:#fff;color:#888;border:1px solid var(--border);border-radius:9px;cursor:pointer;font-size:13px">Annuler</button>
+        <span id="catAddStatus" style="font-size:13px;color:#888"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="cat-grid" id="cat-grid">
+    <div class="empty-state"><div class="es-icon">📦</div><p>Chargement…</p></div>
+  </div>
+
+</section>
+
+<!-- ═══════════════════════════════════════════
+     PAGE : IMPRESSION
+═══════════════════════════════════════════ -->
+<section class="page" id="page-impression">
+
+  <div class="card" style="padding:12px 14px;margin-bottom:10px;">
+    <div class="card-title">⚙️ Format d'impression</div>
+    <div class="grid3">
+      <div>
+        <label class="lbl">Rouleau rectangulaire</label>
+        <select id="format-rect">
+          <option value="40x30">40 × 30 mm</option>
+          <option value="50x40">50 × 40 mm</option>
+          <option value="57x32">57 × 32 mm</option>
+          <option value="62x29">62 × 29 mm</option>
+          <option value="custom">Personnalisé…</option>
+        </select>
+      </div>
+      <div id="custom-format-w" style="display:none;">
+        <label class="lbl">Largeur mm</label>
+        <input type="number" id="fmt-w" value="40" min="10" max="200"/>
+      </div>
+      <div id="custom-format-h" style="display:none;">
+        <label class="lbl">Hauteur mm</label>
+        <input type="number" id="fmt-h" value="30" min="10" max="200"/>
+      </div>
+      <div>
+        <label class="lbl">Rouleau rond (Rouget)</label>
+        <select id="format-round">
+          <option value="15">⬤ 15 mm × 2</option>
+          <option value="20">⬤ 20 mm × 2</option>
+          <option value="25">⬤ 25 mm × 2</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MODULE V5 : CALIBRAGE VISUEL AVANT IMPRESSION -->
+  <div class="card print-calibration-card">
+    <div class="card-title">🎯 V5 — Calibrage visuel avant impression</div>
+    <div class="alert alert-info" style="margin-bottom:12px;">
+      Réglez ici la taille réelle de l’étiquette, le code-barres, les textes et les étiquettes rondes. Les réglages sont sauvegardés automatiquement sur cet ordinateur.
+    </div>
+
+    <div class="calib-layout">
+      <div class="calib-controls">
+        <h3>🏷️ Rectangulaire 40×30</h3>
+        <div class="grid2">
+          <div><label class="lbl">Largeur mm</label><input type="number" id="set-rect-w" value="40" step="0.1" min="10" max="100"/></div>
+          <div><label class="lbl">Hauteur mm</label><input type="number" id="set-rect-h" value="30" step="0.1" min="10" max="100"/></div>
+          <div><label class="lbl">Marge intérieure mm</label><input type="number" id="set-rect-pad" value="1.2" step="0.1" min="0" max="8"/></div>
+          <div><label class="lbl">Code-barres largeur</label><input type="range" id="set-bc-width" min="1" max="5" step="0.1" value="2.4"/></div>
+          <div><label class="lbl">Code-barres hauteur px</label><input type="range" id="set-bc-height" min="25" max="110" step="1" value="62"/></div>
+          <div><label class="lbl">Taille texte produit</label><input type="range" id="set-title-font" min="7" max="22" step="1" value="13"/></div>
+          <div><label class="lbl">Taille texte taille/grammage</label><input type="range" id="set-info-font" min="7" max="22" step="1" value="13"/></div>
+          <div><label class="lbl">Taille référence</label><input type="range" id="set-ref-font" min="6" max="18" step="1" value="9"/></div>
+        </div>
+
+        <h3 style="margin-top:14px;">⬤ Ronde — 2 étiquettes côte à côte</h3>
+        <div class="grid2">
+          <div><label class="lbl">Diamètre mm</label><input type="number" id="set-round-diam" value="15" step="0.1" min="8" max="40"/></div>
+          <div><label class="lbl">Espace entre les 2 ronds mm</label><input type="number" id="set-round-gap" value="2" step="0.1" min="0" max="10"/></div>
+          <div><label class="lbl">Espace haut/bas rondes mm</label><input type="number" id="set-round-gap-y" value="2" step="0.1" min="0" max="10"/></div>
+          <div><label class="lbl">Texte ronde — taille</label><input type="range" id="set-round-title" min="6" max="22" step="1" value="9"/></div>
+          <div><label class="lbl">Texte ronde — grammage</label><input type="range" id="set-round-sub" min="6" max="20" step="1" value="8"/></div>
+        </div>
+
+        <h3 style="margin-top:14px;">🖨️ Impression progressive</h3>
+        <div class="grid2">
+          <div><label class="lbl">Nombre à imprimer maintenant</label><input type="number" id="print-next-count" value="8" min="1" max="999"/></div>
+          <div style="display:flex;align-items:end;"><label style="font-size:12px;font-weight:700;"><input type="checkbox" id="print-decrement"/> Décompter après impression</label></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+          <button class="btn btn-dark" onclick="printNextLabels('rect')">🏷️ Imprimer étiquettes rectangulaires</button>
+          <button class="btn btn-dark" onclick="printNextLabels('round')">⬤ Imprimer étiquettes rondes</button>
+          <button class="btn" onclick="resetPrintSettings()">↺ Réglages usine</button>
+        </div>
+      </div>
+
+      <div class="calib-preview">
+        <div class="preview-title">Aperçu taille réelle</div>
+        <div id="rect-live-preview"></div>
+        <div class="preview-title" style="margin-top:14px;">Aperçu rond ×2</div>
+        <div id="round-live-preview"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ETAPE 1 -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+    <div style="background:var(--primary);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;">1</div>
+    <div style="font-size:14px;font-weight:700;">Insérez le rouleau <span style="color:var(--accent)">40 × 30 mm</span> dans l'imprimante</div>
+  </div>
+
+  <!-- Queue rectangulaire -->
+  <div class="queue-section" id="queue-rect-section">
+    <div class="queue-section-header">
+      <div class="queue-section-title">🏷️ Étiquettes codes-barres <span class="queue-badge" id="rect-badge">0 étiq.</span></div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-accent btn-sm" onclick="printQueue('rect')" id="btn-print-rect">🖨️ Imprimer tout rouleau 1</button>
+        <button class="btn btn-danger btn-sm" onclick="clearQueue('rect')" title="Vider">🗑</button>
+      </div>
+    </div>
+    <div id="queue-rect-list"></div>
+    <div id="rect-confirm-bar" style="display:none;padding:10px 14px;background:#f8f8f4;border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;">
+      <button class="btn btn-success" style="width:100%;justify-content:center;" onclick="confirmQueueQty('rect')">
+        ✅ Confirmer les quantités
+      </button>
+    </div>
+  </div>
+
+  <!-- SEPARATEUR -->
+  <div id="separator-block" style="display:none;margin:16px 0;">
+    <div style="display:flex;align-items:center;gap:12px;background:#fff8e1;border:1px solid #f0c040;border-radius:10px;padding:14px 16px;">
+      <div style="font-size:28px;flex-shrink:0;">🔄</div>
+      <div>
+        <div style="font-size:14px;font-weight:700;color:#7a5800;margin-bottom:4px;">Changez le rouleau !</div>
+        <div style="font-size:13px;color:#7a5800;line-height:1.6;">
+          Retirez le rouleau 40×30mm · Insérez le <strong>rouleau rond 15mm</strong> · Puis cliquez Imprimer rouleau 2
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ETAPE 2 (only shown if rougets in queue) -->
+  <div id="step2-label" style="display:none;align-items:center;gap:10px;margin-bottom:8px;">
+    <div style="background:var(--danger);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;">2</div>
+    <div style="font-size:14px;font-weight:700;">Insérez le rouleau <span style="color:#e53935;">⬤ rond 15 mm</span> dans l'imprimante</div>
+  </div>
+
+  <!-- Queue ronde -->
+  <div class="queue-section" id="queue-round-section">
+    <div class="queue-section-header" style="background:#c62828;">
+      <div class="queue-section-title">⬤ Étiquettes grammage Rouget <span class="queue-badge" id="round-badge">0 étiq.</span></div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-accent btn-sm" onclick="printQueue('round')" id="btn-print-round">🖨️ Imprimer tout rouleau 2</button>
+        <button class="btn btn-danger btn-sm" onclick="clearQueue('round')" title="Vider">🗑</button>
+      </div>
+    </div>
+    <div id="queue-round-list"></div>
+    <div id="round-confirm-bar" style="display:none;padding:10px 14px;background:#fdf0ef;border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;">
+      <button class="btn btn-success" style="width:100%;justify-content:center;" onclick="confirmQueueQty('round')">
+        ✅ Confirmer les quantités
+      </button>
+    </div>
+  </div>
+
+  <!-- Récap total -->
+  <div id="print-summary-block" style="display:none;">
+    <div class="print-summary">
+      <div id="print-summary-content"></div>
+    </div>
+  </div>
+
+  <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
+    <button onclick="goToFacturationMagasin()" style="flex:1;min-width:200px;padding:14px;background:#1a1a1a;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">
+      🏪 Passer à la facturation Magasin
+    </button>
+    <button onclick="goToFacturationCabesto()" style="flex:1;min-width:200px;padding:14px;background:#c62828;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;">
+      🔗 Passer à la facturation Cabesto
+    </button>
+  </div>
+  <div class="print-tip" id="print-instructions">
+    <strong>⚠️ Réglages Xprinter XP-365B à configurer une seule fois :</strong>
+    <ol>
+      <li>Sélectionnez <strong>Xprinter XP-365B</strong> dans la liste des imprimantes</li>
+      <li><strong>Plus de paramètres</strong> → Format du papier → choisissez <strong>40×30mm</strong></li>
+      <li>Marges : <strong>Aucune</strong> — Mise à l'échelle : <strong>Taille réelle</strong></li>
+      <li>Cochez <strong>"Enregistrer comme paramètres par défaut"</strong> → un seul réglage pour toujours ✅</li>
+    </ol>
+  </div>
+
+</section>
+
+
+<!-- ═══════════════════════════════════════════
+     PAGE : INSTALLATION
+═══════════════════════════════════════════ -->
+<section class="page" id="page-installation">
+  <div class="card">
+    <div class="card-title">⚙️ Installation imprimante — Pack Atelier</div>
+    <div class="alert alert-info">
+      Cette page sert quand tu changes de PC : installation du pilote, formats papier et tests.
+    </div>
+    <div class="guide-step">
+      <div class="guide-step-num">1</div>
+      <div class="guide-step-content">
+        <h3>Pilote Xprinter XP-365B</h3>
+        <p>Installe le pilote Windows de l’imprimante avant d’imprimer.</p>
+        <p><a class="btn btn-accent" href="https://www.bartendersoftware.com/fr/resources/printer-drivers/xprinter/xprinter-xp-365b" target="_blank">⬇️ Télécharger le pilote Xprinter</a></p>
+      </div>
+    </div>
+    <div class="guide-step">
+      <div class="guide-step-num">2</div>
+      <div class="guide-step-content">
+        <h3>Formats à créer / choisir</h3>
+        <ul>
+          <li><strong>40 × 30 mm</strong> : codes-barres standard</li>
+          <li><strong>50 × 40 mm</strong> : Anguillon / Super Anguillon / Anguillon Vibrant</li>
+          <li><strong>Rond 15 mm</strong>, <strong>20 mm</strong>, <strong>25 mm</strong> : étiquettes Rouget</li>
+          <li>Marges : <strong>aucune</strong> — Échelle : <strong>100% / taille réelle</strong></li>
+        </ul>
+      </div>
+    </div>
+    <div class="guide-step">
+      <div class="guide-step-num">3</div>
+      <div class="guide-step-content">
+        <h3>Tests rapides</h3>
+        <p>Va dans l’onglet Impression, utilise <strong>Test 1</strong> sur une ligne, puis ajuste le calibrage visuel.</p>
+        <div class="guide-tip">💡 Si Chrome n’ouvre pas la fenêtre complète Windows, utilise <strong>Ctrl + Shift + P</strong>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════
+     PAGE : FACTURATION PRO
+═══════════════════════════════════════════ -->
+<section class="page" id="page-facturation">
+<style>
+.sub-tab-btn{flex:1;padding:13px;font-size:13px;font-weight:700;border:none;cursor:pointer;letter-spacing:.02em;transition:all .15s;}
+.factu-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px;}
+.factu-table th{background:#1a1a1a;color:#fff;padding:6px 7px;text-align:left;white-space:nowrap;}
+.factu-table th.r,.factu-table td.r{text-align:right;white-space:nowrap;}
+.factu-table td{border:1px solid #ddd;padding:5px 7px;vertical-align:middle;white-space:nowrap;}
+.factu-table tr:nth-child(even){background:#f9f9f9;}
+.factu-table .mono{font-family:monospace;font-size:10px;}
+.btn-del{background:none;border:none;cursor:pointer;color:#c62828;font-size:15px;padding:0 3px;}
+.total-row{display:flex;justify-content:space-between;align-items:center;padding:7px 12px;border:1px solid #ddd;border-top:none;font-size:13px;}
+.total-row:first-child{border-top:1px solid #ddd;}
+.total-row.tva{color:#888;font-size:12px;}
+.total-row.grand{background:#1a1a1a;color:#fff;font-weight:700;font-size:15px;border-color:#1a1a1a;}
+.factu-empty{color:#999;font-size:13px;padding:20px;text-align:center;background:#f8f8f4;border-radius:8px;}
+.import-zone{border:2px dashed #ddd;border-radius:8px;padding:12px;margin-bottom:12px;background:#f8f8f4;}
+@keyframes pulse-btn{0%,100%{box-shadow:0 0 0 0 rgba(46,125,50,.5);}50%{box-shadow:0 0 0 12px rgba(46,125,50,0);}}
+.btn-go-print{animation:pulse-btn 1.5s infinite;background:#2e7d32;color:#fff;border:none;border-radius:10px;padding:14px 20px;font-size:14px;font-weight:700;cursor:pointer;width:100%;margin-top:12px;display:none;}
+.btn-go-print.visible{display:block;}
+</style>
+
+<div style="display:flex;background:#1a1a1a;border-radius:10px;overflow:hidden;margin-bottom:14px;">
+  <button id="sub-tab-magasin" class="sub-tab-btn" style="background:#e8c840;color:#1a1a1a;" onclick="showFactuTab('magasin')">🏪 Facturation Magasin</button>
+  <button id="sub-tab-cabesto" class="sub-tab-btn" style="background:#1a1a1a;color:#666;" onclick="showFactuTab('cabesto')">🔗 Facturation Cabesto</button>
+</div>
+<div id="drafts-panel" style="display:none;margin-bottom:12px;"></div>
+
+<!-- ══ MAGASIN ══ -->
+<div id="factu-magasin">
+  <div class="card">
+    <div class="card-title">📥 Importer ou coller une commande</div>
+    <div class="import-zone">
+      <!-- Zone dépôt fichier agrandie -->
+      <div id="mag-drop" onclick="document.getElementById('mag-file').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--primary)';this.style.background='#f0f0e8'"
+        ondragleave="this.style.borderColor='';this.style.background=''"
+        ondrop="handleFactuDrop(event,'mag')"
+        style="border:2px dashed #bbb;border-radius:10px;padding:28px 16px;text-align:center;cursor:pointer;color:#888;margin-bottom:10px;transition:.2s;">
+        <div style="font-size:28px;margin-bottom:6px">📂</div>
+        <div style="font-size:14px;font-weight:700;color:var(--primary);margin-bottom:3px">Glisser ou cliquer ici</div>
+        <div style="font-size:12px;color:#aaa">PDF bon de commande · Excel · Photo · Image</div>
+      </div>
+      <input type="file" id="mag-file" accept=".pdf,.xlsx,.xls,image/*" style="display:none" onchange="handleFactuFile(this.files[0],'mag')"/>
+
+      <!-- Séparateur -->
+      <div style="display:flex;align-items:center;gap:8px;margin:10px 0">
+        <div style="flex:1;height:1px;background:#e0ddd4"></div>
+        <span style="font-size:11px;color:#aaa;font-weight:700">OU COLLER UN EMAIL / SMS / TEXTE</span>
+        <div style="flex:1;height:1px;background:#e0ddd4"></div>
+      </div>
+
+      <!-- Zone texte email/SMS -->
+      <textarea id="mag-import-text" rows="5"
+        placeholder="Coller ici votre email, SMS ou commande texte :&#10;&#10;Bonjour, je voudrais commander :&#10;- 8 Rouget Martegal 90 14g&#10;- 6 Mistik Shad 90 Vert&#10;&#10;Merci"
+        style="font-size:13px;width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:10px;resize:vertical;"></textarea>
+
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+        <button class="btn btn-accent" style="flex:1;min-width:180px;font-weight:800;padding:12px;"
+          onclick="factuAnalyzeIA('mag')">🤖 Analyser avec OpenAI</button>
+        <button class="btn" style="flex:1;min-width:140px;padding:12px;"
+          onclick="factuAnalyze('mag')">🔍 Analyser (local)</button>
+        <button class="btn btn-sm btn-danger" onclick="factuClear('mag')">🗑 Effacer</button>
+      </div>
+      <div id="mag-import-status" style="font-size:12px;color:var(--success);margin-top:6px;display:none;"></div>
+    </div>
+    <div class="grid3">
+      <div><label class="lbl">Magasin *</label>
+        <select id="mag-client-sel"><option value="">— Choisir un magasin —</option></select></div>
+      <div><label class="lbl">N° facture</label>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <input type="text" id="mag-inv-num" style="flex:1;"/>
+          <button onclick="autoFillInvNum('mag')" title="Générer prochain numéro" style="padding:7px 9px;background:#444;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap;">🔄</button>
+        </div>
+      </div>
+      <div><label class="lbl">Date</label><input type="date" id="mag-inv-date"/></div>
+    </div>
+    <div class="grid2" style="margin-top:10px;">
+      <div><label class="lbl">Réf. commande client</label><input type="text" id="mag-order-ref" placeholder="BC-2026-001"/></div>
+      <div><label class="lbl">Frais de port HT (€)</label>
+        <input type="number" id="mag-port" value="0" min="0" step="0.01" oninput="factuRenderTotals('mag')"/></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
+      <button class="btn btn-success" onclick="magPrint('invoice')">🧾 Imprimer facture</button>
+      <button class="btn btn-dark" onclick="magDownload('invoice')">⬇️ Télécharger facture</button>
+      <button class="btn btn-success" onclick="magPrint('delivery')">📦 Imprimer bon livraison</button>
+      <button class="btn btn-dark" onclick="magDownload('delivery')">⬇️ Télécharger bon livraison</button>
+    </div>
+    <button class="btn-go-print" id="mag-go-print" onclick="goToCommandeFromFactu()">
+      🖨️ Aller imprimer vos codes-barres →
+    </button>
+  </div>
+  <div class="card">
+    <div class="card-title">📋 Lignes facture — prix HT catalogue automatiques</div>
+    <div id="mag-lines"><div class="factu-empty">Importez ou collez une commande ci-dessus, ou cliquez "Passer à la facturation Magasin" depuis l'onglet Impression.</div></div>
+    <div id="mag-total" style="display:none;margin-top:8px;"></div>
+  </div>
+</div>
+
+<!-- ══ CABESTO ══ -->
+<div id="factu-cabesto" style="display:none;">
+  <div class="card" style="border-left:4px solid #c62828;">
+    <div class="card-title" style="color:#c62828;">📥 Importer ou coller une commande Cabesto</div>
+    <div class="import-zone">
+      <!-- Zone dépôt fichier agrandie -->
+      <div id="cab-drop" onclick="document.getElementById('cab-file').click()"
+        ondragover="event.preventDefault();this.style.borderColor='#c62828';this.style.background='#fef0f0'"
+        ondragleave="this.style.borderColor='';this.style.background=''"
+        ondrop="handleFactuDrop(event,'cab')"
+        style="border:2px dashed #bbb;border-radius:10px;padding:28px 16px;text-align:center;cursor:pointer;color:#888;margin-bottom:10px;transition:.2s;">
+        <div style="font-size:28px;margin-bottom:6px">📂</div>
+        <div style="font-size:14px;font-weight:700;color:#c62828;margin-bottom:3px">Glisser ou cliquer ici</div>
+        <div style="font-size:12px;color:#aaa">Bon de commande Cabesto PDF · Excel · Photo</div>
+      </div>
+      <input type="file" id="cab-file" accept=".pdf,.xlsx,.xls,image/*" style="display:none" onchange="handleFactuFile(this.files[0],'cab')"/>
+
+      <!-- Séparateur -->
+      <div style="display:flex;align-items:center;gap:8px;margin:10px 0">
+        <div style="flex:1;height:1px;background:#e0ddd4"></div>
+        <span style="font-size:11px;color:#aaa;font-weight:700">OU COLLER UN EMAIL / SMS / TEXTE</span>
+        <div style="flex:1;height:1px;background:#e0ddd4"></div>
+      </div>
+
+      <!-- Zone texte email/SMS -->
+      <textarea id="cab-import-text" rows="5"
+        placeholder="Coller ici votre bon de commande, email ou SMS :&#10;&#10;PE-0022611 ROUGET MARTEGAL 90 14g x10&#10;PE-0022615 ROUGET MARTEGAL 70 6g x10&#10;&#10;Ou coller le texte brut d'un email Cabesto..."
+        style="font-size:13px;width:100%;box-sizing:border-box;border:1.5px solid var(--border);border-radius:8px;padding:10px;resize:vertical;"></textarea>
+
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+        <button class="btn" style="flex:1;min-width:180px;background:#c62828;color:#fff;border-color:#c62828;font-weight:800;padding:12px;"
+          onclick="factuAnalyzeIA('cab')">🤖 Analyser avec OpenAI</button>
+        <button class="btn" style="flex:1;min-width:140px;background:#1a1a1a;color:#fff;border-color:#1a1a1a;padding:12px;"
+          onclick="factuAnalyze('cab')">🔍 Analyser (local)</button>
+        <button class="btn" style="flex:1;min-width:140px;padding:12px;"
+          onclick="openCabSaisieRapide()">⌨️ Saisie rapide</button>
+        <button class="btn btn-sm btn-danger" onclick="factuClear('cab')">🗑 Effacer</button>
+      </div>
+      <div id="cab-import-status" style="font-size:12px;color:var(--success);margin-top:6px;display:none;"></div>
+    </div>
+    <div class="grid3">
+      <div><label class="lbl">Magasin Cabesto *</label>
+        <select id="cab-client-sel"><option value="">— Choisir le magasin —</option></select></div>
+      <div><label class="lbl">Réf. commande Cabesto</label>
+        <input type="text" id="cab-order-ref" placeholder="COMF/MAN/2026/XXXXX"/></div>
+      <div><label class="lbl">N° facture</label><input type="text" id="cab-inv-num" value="FL-2026-001"/></div>
+    </div>
+    <div class="grid3" style="margin-top:10px;">
+      <div><label class="lbl">Date facture</label><input type="date" id="cab-inv-date"/></div>
+      <div><label class="lbl">Date livraison prévue</label><input type="date" id="cab-delivery-date"/></div>
+      <div><label class="lbl">Code fournisseur</label>
+        <input type="text" id="cab-supplier-code" value="FE00513" style="font-weight:700;background:#f8f8f4;"/></div>
+    </div>
+    <div class="grid2" style="margin-top:10px;">
+      <div></div>
+      <div><label class="lbl">Frais de port HT (€)</label>
+        <input type="number" id="cab-port" value="0" min="0" step="0.01" oninput="factuRenderTotals('cab')"/></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
+      <button class="btn btn-success" style="background:#c62828;border-color:#c62828;" onclick="cabPrint('invoice')">🧾 Imprimer facture</button>
+      <button class="btn btn-dark" onclick="cabDownload('invoice')">⬇️ Télécharger facture</button>
+      <button class="btn btn-success" style="background:#c62828;border-color:#c62828;" onclick="cabPrint('delivery')">📦 Imprimer bon livraison</button>
+      <button class="btn btn-dark" onclick="cabDownload('delivery')">⬇️ Télécharger bon livraison</button>
+      <div id="cab-packing-info" style="margin:8px 0 4px;padding:8px 12px;background:#0a2a0a;border:1px solid #1a5e20;border-radius:6px;font-size:12px;display:flex;gap:16px;flex-wrap:wrap">
+        <span style="color:#aaa">🏪 CDE magasin : <strong id="cab-cde-display" style="color:#66bb6a">— (détecté à l'import)</strong></span>
+        <span style="color:#aaa">📧 Email réception : <strong id="cab-recep-email-display" style="color:#66bb6a">—</strong></span>
+      </div>
+      <button class="btn btn-dark" style="background:#1a5e20;border-color:#1a5e20;color:#fff;font-weight:700;" onclick="cabExportPackingListe()">📋 Export Packing Liste EAN13 (.csv)</button>
+    </div>
+    <button class="btn-go-print" id="cab-go-print" onclick="goToCommandeFromFactu()">
+      🖨️ Aller imprimer vos codes-barres →
+    </button>
+  </div>
+  <div class="card">
+    <div class="card-title">📋 Lignes Cabesto — Réf. PE + prix Cabesto automatiques</div>
+    <div id="cab-lines"><div class="factu-empty">Importez ou collez le bon de commande Cabesto ci-dessus.</div></div>
+    <div id="cab-total" style="display:none;margin-top:8px;"></div>
+  </div>
+</div>
+
+</section>
+
+
+<!-- MODAL SAISIE RAPIDE CABESTO -->
+<div id="modal-saisie-rapide" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;overflow-y:auto;padding:20px;">
+  <div style="background:#fff;border-radius:12px;max-width:700px;margin:0 auto;padding:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h2 style="font-size:16px;font-weight:700;">⌨️ Saisie rapide — Quantités par produit</h2>
+      <button onclick="document.getElementById('modal-saisie-rapide').style.display='none'" style="background:none;border:none;font-size:24px;cursor:pointer;color:#888;">×</button>
+    </div>
+    <div style="font-size:12px;color:#888;margin-bottom:12px;background:#fff8e1;padding:8px 12px;border-radius:6px;border:1px solid #f0c040;">
+      💡 Entrez 0 pour les produits non commandés. Laissez vide = 0.
+    </div>
+    <div id="saisie-rapide-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:60vh;overflow-y:auto;"></div>
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      <button onclick="valideSaisieRapide()" style="flex:1;padding:13px;background:#c62828;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">
+        ✅ Créer la facture avec ces quantités
+      </button>
+      <button onclick="document.getElementById('modal-saisie-rapide').style.display='none'" style="padding:13px 20px;background:#f0f0ec;border:1px solid #ddd;border-radius:8px;cursor:pointer;">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     PAGE : GUIDE
+═══════════════════════════════════════════ -->
+<section class="page" id="page-guide">
+  <div class="card">
+    <div class="card-title">📖 Guide d'utilisation — Frenchy Leurres Étiquettes Pro</div>
+
+    <div class="guide-step">
+      <div class="guide-step-num">1</div>
+      <div class="guide-step-content">
+        <h3>Recevoir une commande</h3>
+        <p>Quand vous recevez une commande (email, PDF, photo), allez sur l'onglet <strong>Commande</strong>.</p>
+        <ul>
+          <li>Pour un <strong>PDF</strong> : cliquez sur la zone import et sélectionnez le PDF — le texte sera extrait automatiquement</li>
+          <li>Pour une <strong>photo</strong> : importez l'image, lisez-la et tapez la commande dans le champ texte</li>
+          <li>Pour un <strong>email</strong> : copiez-collez le texte directement dans le champ</li>
+        </ul>
+        <div class="guide-tip">💡 Vous pouvez écrire la commande en langage naturel : "Mistik Shad Vert 9cm x6" ou "6 Frenchy Shiner Bleu Flash 9cm"</div>
+      </div>
+    </div>
+
+    <div class="guide-step">
+      <div class="guide-step-num">2</div>
+      <div class="guide-step-content">
+        <h3>Analyser et valider</h3>
+        <p>Cliquez sur <strong>Analyser la commande</strong>. L'application va détecter automatiquement chaque produit et sa quantité.</p>
+        <ul>
+          <li>🟢 <strong>Vert</strong> = produit reconnu dans le catalogue</li>
+          <li>🔴 <strong>Rouge</strong> = produit non reconnu — ajout manuel possible</li>
+        </ul>
+        <p style="margin-top:6px;">Ajustez les quantités si besoin, puis cliquez <strong>Tout ajouter à la file d'impression</strong>.</p>
+      </div>
+    </div>
+
+    <div class="guide-step">
+      <div class="guide-step-num">3</div>
+      <div class="guide-step-content">
+        <h3>Ajout manuel (produit inconnu)</h3>
+        <p>Si un produit n'est pas reconnu, cliquez <strong>Ajouter manuellement</strong>. Entrez le nom, la couleur, la taille et le numéro EAN-13. Le code-barres sera généré automatiquement.</p>
+        <div class="guide-tip">💡 Vous pouvez aussi ajouter directement depuis l'onglet Catalogue en cliquant sur un produit.</div>
+      </div>
+    </div>
+
+    <div class="guide-step">
+      <div class="guide-step-num">4</div>
+      <div class="guide-step-content">
+        <h3>File d'impression</h3>
+        <p>Dans l'onglet <strong>Impression</strong>, vous verrez deux files :</p>
+        <ul>
+          <li><strong>Rouleau rectangulaire (40×30mm)</strong> : tous les produits avec code-barres EAN-13</li>
+          <li><strong>Rouleau rond (15mm)</strong> : uniquement les Rougets (taille + grammage)</li>
+        </ul>
+        <p style="margin-top:6px;">Utilisez les boutons ×1 ×4 ×6 ×10 ×20 ×50 pour ajuster les quantités rapidement.</p>
+      </div>
+    </div>
+
+    <div class="guide-step">
+      <div class="guide-step-num">5</div>
+      <div class="guide-step-content">
+        <h3>Imprimer avec la Xprinter XP-365B</h3>
+        <p>Cliquez sur le bouton <strong>Imprimer</strong>. Une fenêtre Windows s'ouvre :</p>
+        <ul>
+          <li>Sélectionnez <strong>Xprinter XP-365B</strong></li>
+          <li>Format du papier → <strong>40×30mm</strong> (ou votre format)</li>
+          <li>Marges → <strong>Aucune</strong></li>
+          <li>Mise à l'échelle → <strong>Taille réelle</strong></li>
+        </ul>
+        <div class="guide-tip">💡 Ces réglages sont mémorisés par Windows. Après la première configuration, un simple clic suffit !</div>
+      </div>
+    </div>
+
+    <div class="guide-step">
+      <div class="guide-step-num">6</div>
+      <div class="guide-step-content">
+        <h3>Utiliser sur téléphone ou tablette</h3>
+        <p>Ouvrez ce fichier depuis n'importe quel navigateur sur votre réseau Wi-Fi. L'application s'adapte automatiquement à l'écran.</p>
+        <div class="guide-tip">💡 Sur téléphone, vous pouvez photographier une commande manuscrite, importer la photo et taper la commande en lisant l'image.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     MODAL : AJOUT MANUEL
+═══════════════════════════════════════════ -->
+<div class="modal-bg" id="modal-manual">
+  <div class="modal">
+    <div class="modal-title">
+      ✏️ Ajouter un produit
+      <button class="modal-close" onclick="closeModal('modal-manual')">×</button>
+    </div>
+    <div class="grid2" style="margin-bottom:10px;">
+      <div><label class="lbl">Nom produit *</label><input type="text" id="m-produit" placeholder="ex: Mistik Shad"/></div>
+      <div><label class="lbl">Couleur *</label><input type="text" id="m-couleur" placeholder="ex: Vert Electric"/></div>
+    </div>
+    <div class="grid2" style="margin-bottom:10px;">
+      <div><label class="lbl">Taille</label><input type="text" id="m-taille" placeholder="ex: 9 cm"/></div>
+      <div><label class="lbl">Grammage</label><input type="text" id="m-grammage" placeholder="ex: 12 g"/></div>
+    </div>
+    <div class="grid2" style="margin-bottom:10px;">
+      <div><label class="lbl">Référence</label><input type="text" id="m-ref" placeholder="ex: MISTIK-VE-9-12"/></div>
+      <div><label class="lbl">EAN-13 *</label><input type="text" id="m-ean" placeholder="13 chiffres"/></div>
+    </div>
+    <div class="grid2" style="margin-bottom:14px;">
+      <div><label class="lbl">Quantité</label><input type="number" id="m-qty" value="1" min="1"/></div>
+      <div><label class="lbl">Type étiquette</label>
+        <select id="m-type">
+          <option value="rect">Rectangulaire (40×30)</option>
+          <option value="round">Ronde (Rouget)</option>
+        </select>
+      </div>
+    </div>
+    <div id="m-ean-preview" style="margin-bottom:12px;display:none;text-align:center;">
+      <canvas id="m-ean-canvas"></canvas>
+    </div>
+    <div id="m-alert" class="alert alert-err" style="display:none;"></div>
+    <input type="hidden" id="m-edit-ref" value="">
+    <button class="btn btn-success btn-full" onclick="addManualProduct()">✅ Enregistrer dans le catalogue</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MODAL : APERÇU ÉTIQUETTE
+═══════════════════════════════════════════ -->
+<div class="modal-bg" id="modal-preview">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-title">
+      Aperçu étiquette
+      <button class="modal-close" onclick="closeModal('modal-preview')">×</button>
+    </div>
+    <div id="modal-preview-content" style="display:flex;flex-direction:column;align-items:center;gap:12px;"></div>
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      <button class="btn btn-success btn-full" id="modal-add-btn">➕ Ajouter à la file</button>
+      <button class="btn btn-sm" onclick="closeModal('modal-preview')">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- FAB -->
+<button id="fab-print" onclick="showTab('impression')" title="Voir la file d'impression">🖨️</button>
+
+
+<!-- ═══ PAGE COMPTES PRO ═══ -->
+<section class="page" id="page-comptes-pro">
+<div class="cpro-wrap">
+
+  <!-- ══ KPI STATS ══ -->
+  <div class="cpro-stats">
+    <div class="cpro-stat">
+      <div class="cpro-stat-val" id="proStatTotal">—</div>
+      <div class="cpro-stat-lbl">Total clients</div>
+    </div>
+    <div class="cpro-stat warn">
+      <div class="cpro-stat-val" id="proStatAttente">—</div>
+      <div class="cpro-stat-lbl">En attente</div>
+    </div>
+    <div class="cpro-stat success">
+      <div class="cpro-stat-val" id="proStatValide">—</div>
+      <div class="cpro-stat-lbl">Validés</div>
+    </div>
+    <div class="cpro-stat shopify">
+      <div class="cpro-stat-val" id="proStatShopify">—</div>
+      <div class="cpro-stat-lbl">Dans Shopify</div>
+    </div>
+  </div>
+
+  <!-- ══ LAYOUT PRINCIPAL ══ -->
+  <div class="cpro-layout">
+
+    <!-- ── COLONNE GAUCHE : Nouveau + Signature ── -->
+    <div class="cpro-left">
+
+      <!-- Accordion : Nouveau compte -->
+      <div class="cpro-accordion" id="accNew">
+        <button class="cpro-acc-header open" onclick="cproToggle('accNew')">
+          <span>➕ <span id="proFormTitle">Nouveau compte pro</span></span>
+          <span class="cpro-acc-arrow">▲</span>
+        </button>
+        <div class="cpro-acc-body">
+
+          <!-- Lecture Kbis -->
+          <div class="cpro-kbis-zone">
+            <label for="proKbisInput" class="cpro-kbis-label">
+              <div class="cpro-kbis-inner">
+                <div class="cpro-kbis-icon">📋</div>
+                <div class="cpro-kbis-title">Déposer le Kbis ici</div>
+                <div class="cpro-kbis-sub">PDF → remplissage automatique du formulaire</div>
+              </div>
+            </label>
+            <input type="file" id="proKbisInput" accept=".pdf" style="display:none">
+            <div id="proFileName" class="cpro-kbis-status"></div>
+            <div id="proOcrSt" class="cpro-kbis-status"></div>
+            <div class="cpro-bar-wrap" id="proBarWrap" style="display:none">
+              <div class="cpro-bar-fill" id="proBarFill"></div>
+            </div>
+          </div>
+
+          <input type="hidden" id="proEditId">
+
+          <!-- Formulaire -->
+          <div class="cpro-form-grid">
+            <div class="cpro-field cpro-full">
+              <label>Nom du magasin *</label>
+              <input id="proNom" type="text" placeholder="Ex : K-Bestock Sérignan">
+            </div>
+            <div class="cpro-field">
+              <label>Responsable</label>
+              <input id="proResponsable" type="text" placeholder="Prénom Nom">
+            </div>
+            <div class="cpro-field">
+              <label>Type client</label>
+              <select id="proTypeSelect">
+                <option value="pro">Pro standard</option>
+                <option value="cabesto">Cabesto / Grand compte</option>
+                <option value="vip">VIP</option>
+              </select>
+            </div>
+            <div class="cpro-field cpro-full">
+              <label>Email professionnel *</label>
+              <input id="proEmail" type="email" placeholder="contact@magasin.fr"
+                oninput="var x=document.getElementById('proLoginId');if(x&&!x.dataset.manual){x.value=this.value}">
+            </div>
+<!-- 👥 CONTACTS MAGASIN -->
+<div class="cpro-field cpro-full" style="margin-top:10px;">
+  <label style="font-weight:800;">👥 Contacts magasin</label>
+
+  <!-- Directeur -->
+  <div class="grid3" style="margin-top:6px;">
+    <input id="proDirNom" placeholder="Nom directeur">
+    <input id="proDirEmail" placeholder="Email directeur">
+    <input id="proDirTel" placeholder="Tel directeur">
+  </div>
+
+  <!-- Comptable -->
+  <div class="grid3" style="margin-top:6px;">
+    <input id="proComptaNom" placeholder="Nom comptable">
+    <input id="proComptaEmail" placeholder="Email comptable">
+    <input id="proComptaTel" placeholder="Tel comptable">
+  </div>
+
+  <!-- Responsable rayon -->
+  <div class="grid3" style="margin-top:6px;">
+    <input id="proRayonNom" placeholder="Nom responsable rayon">
+    <input id="proRayonEmail" placeholder="Email rayon">
+    <input id="proRayonTel" placeholder="Tel rayon">
+  </div>
+</div>
+            <div class="cpro-field">
+              <label>Identifiant connexion</label>
+              <input id="proLoginId" type="email" placeholder="souvent l'email" oninput="this.dataset.manual='1'">
+            </div>
+            <div class="cpro-field">
+              <label>Mot de passe à envoyer</label>
+              <input id="proLoginPass" type="text" placeholder="généré automatiquement">
+            </div>
+            <div class="cpro-field">
+              <label>Téléphone</label>
+              <input id="proTel" type="tel" placeholder="06 00 00 00 00">
+            </div>
+            <div class="cpro-field">
+              <label>SIRET</label>
+              <input id="proSiret" type="text" placeholder="00000000000000">
+            </div>
+            <div class="cpro-field">
+              <label>Adresse</label>
+              <input id="proAdresse" type="text" placeholder="Adresse complète">
+            </div>
+            <div class="cpro-field">
+              <label>N° TVA</label>
+              <input id="proTva" type="text" placeholder="FR00000000000">
+            </div>
+            <div class="cpro-field">
+              <label>Statut</label>
+              <select id="proStatutSelect">
+                <option value="en_attente">⏳ En attente</option>
+                <option value="valide">✅ Validé</option>
+                <option value="refuse">❌ Refusé</option>
+              </select>
+            </div>
+            <div class="cpro-field">
+              <label>Conditions / Notes internes</label>
+              <textarea id="proNotes" placeholder="Franco 150€ HT, paiement 30j, remise 20%..."></textarea>
+            </div>
+          </div>
+
+          <div class="cpro-form-actions">
+            <button class="cpro-btn cpro-gold" onclick="pSaveClient()">💾 Enregistrer</button>
+            <button class="cpro-btn cpro-ghost" id="proResetBtn" onclick="pResetForm()" style="display:none">✖ Annuler</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Accordion : Signature -->
+      <div class="cpro-accordion" id="accSig">
+        <button class="cpro-acc-header" onclick="cproToggle('accSig')">
+          <span>✍️ Ma signature expéditeur</span>
+          <span class="cpro-acc-arrow">▼</span>
+        </button>
+        <div class="cpro-acc-body" style="display:none">
+          <div class="cpro-form-grid">
+            <div class="cpro-field">
+              <label>Nom responsable</label>
+              <input id="sigNom" type="text">
+            </div>
+            <div class="cpro-field">
+              <label>Société</label>
+              <input id="sigSociete" type="text">
+            </div>
+            <div class="cpro-field cpro-full">
+              <label>Adresse</label>
+              <textarea id="sigAdresse" style="min-height:44px"></textarea>
+            </div>
+            <div class="cpro-field">
+              <label>Téléphone</label>
+              <input id="sigTel" type="text">
+            </div>
+            <div class="cpro-field">
+              <label>Email</label>
+              <input id="sigEmail" type="email">
+            </div>
+            <div class="cpro-field">
+              <label>Site web</label>
+              <input id="sigSite" type="text">
+            </div>
+            <div class="cpro-field">
+              <label>SIRET</label>
+              <input id="sigSiret" type="text">
+            </div>
+            <div class="cpro-field">
+              <label>N° TVA</label>
+              <input id="sigTva" type="text">
+            </div>
+          </div>
+          <div class="cpro-form-actions">
+            <button class="cpro-btn cpro-green" onclick="pSaveSig()">💾 Sauvegarder ma signature</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── COLONNE DROITE : Liste + Fiche + Email ── -->
+    <div class="cpro-right">
+
+      <!-- Liste des comptes -->
+      <div class="cpro-card">
+        <div class="cpro-card-header">
+          <span>🏪 Comptes pro enregistrés</span>
+          <select id="proFilterStatut" onchange="pLoadList()" class="cpro-filter-sel">
+            <option value="">Tous</option>
+            <option value="en_attente">En attente</option>
+            <option value="valide">Validés</option>
+            <option value="refuse">Refusés</option>
+          </select>
+        </div>
+        <div class="pro-list" id="proList">
+          <div style="text-align:center;padding:28px;color:#555">Chargement...</div>
+        </div>
+      </div>
+
+      <!-- Fiche client sélectionné -->
+      <div class="cpro-card" id="proActPanel" style="display:none">
+        <div class="cpro-card-header">
+          <span id="proActTitle">Actions</span>
+        </div>
+        <div class="cpro-action-grid">
+          <button class="cpro-btn cpro-green" onclick="pMarkValide()">✅ Valider le compte</button>
+          <button class="cpro-btn cpro-ghost" onclick="pEditMode()">✏️ Modifier</button>
+          <button class="cpro-btn cpro-shopify" onclick="pOpenShopify()">🛒 Créer dans Shopify</button>
+          <button class="cpro-btn cpro-gold" onclick="pGenEmail()">📧 Générer l'email</button>
+          <button class="cpro-btn cpro-red" onclick="pDeleteClient()">🗑 Supprimer</button>
+        </div>
+      </div>
+
+      <!-- Panel email -->
+      <div class="cpro-card" id="proEmailPanel" style="display:none">
+        <div class="cpro-card-header">
+          <span>📧 Email prêt à envoyer</span>
+          <button class="cpro-btn cpro-gold" onclick="pCopyEmail()" style="padding:6px 14px;font-size:12px">📋 Copier</button>
+        </div>
+        <div id="proEmailMeta" style="font-size:11px;color:#888;margin-bottom:8px"></div>
+        <textarea class="pro-email-box" id="proEmailPreview"></textarea>
+        <div style="font-size:11px;color:#555;margin-top:8px">
+          ℹ️ Copie cet email et envoie-le depuis ton Gmail à l'adresse du client.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+  <!-- ══ SECTION MAGASINS PARTENAIRES ══ -->
+  <div style="margin-top:20px">
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-weight:900;font-size:15px;color:var(--primary)">🗺️ Tous les magasins partenaires</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Cliquer 🧾 pour facturer directement</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="allMgSearch" placeholder="🔍 Rechercher..." oninput="allMgRender()" style="padding:7px 11px;border:1px solid var(--border);border-radius:7px;font-size:12px;width:160px">
+          <button onclick="allMgShowForm()" style="padding:7px 14px;background:var(--accent);color:var(--primary);border:none;border-radius:7px;font-weight:800;font-size:12px;cursor:pointer">➕ Nouveau magasin</button>
+        </div>
+      </div>
+      <div id="allMgFormPanel" style="display:none;padding:16px 18px;background:#fafaf8;border-bottom:1px solid var(--border)">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+          <div><label style="display:block;font-size:10px;font-weight:800;color:var(--primary);text-transform:uppercase;margin-bottom:3px">Nom *</label><input id="allMgNom" placeholder="Ex: Top Fishing" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px"></div>
+          <div><label style="display:block;font-size:10px;font-weight:800;color:var(--primary);text-transform:uppercase;margin-bottom:3px">Type</label><select id="allMgType" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;background:#fff"><option value="magasin">Magasin</option><option value="cabesto">Cabesto</option></select></div>
+          <div><label style="display:block;font-size:10px;font-weight:800;color:var(--primary);text-transform:uppercase;margin-bottom:3px">Département</label><input id="allMgDept" placeholder="13" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px"></div>
+          <div><label style="display:block;font-size:10px;font-weight:800;color:var(--primary);text-transform:uppercase;margin-bottom:3px">Téléphone</label><input id="allMgTel" placeholder="04 00 00 00 00" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px"></div>
+          <div><label style="display:block;font-size:10px;font-weight:800;color:var(--primary);text-transform:uppercase;margin-bottom:3px">Email</label><input id="allMgEmail" placeholder="contact@magasin.fr" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px"></div>
+          <div><label style="display:block;font-size:10px;font-weight:800;color:var(--primary);text-transform:uppercase;margin-bottom:3px">SIRET</label><input id="allMgSiret" placeholder="00000000000000" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px"></div>
+          <div style="grid-column:1/-1"><label style="display:block;font-size:10px;font-weight:800;color:var(--primary);text-transform:uppercase;margin-bottom:3px">Adresse</label><input id="allMgAdresse" placeholder="Adresse complète" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px"></div>
+          <div style="grid-column:1/-1"><label style="display:block;font-size:10px;font-weight:800;color:var(--primary);text-transform:uppercase;margin-bottom:3px">Notes</label><input id="allMgNotes" placeholder="Franco 150€ HT, remise 20%..." style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px"></div>
+        </div>
+<!-- 👥 CONTACTS MAGASIN -->
+<div style="margin-top:10px;">
+  <label style="font-weight:800;">👥 Contacts magasin</label>
+
+  <div class="grid3" style="margin-top:6px;">
+    <input id="allMgDirNom" placeholder="Nom directeur">
+    <input id="allMgDirEmail" placeholder="Email directeur">
+    <input id="allMgDirTel" placeholder="Tel directeur">
+
+    <input id="allMgComptaNom" placeholder="Nom comptable">
+    <input id="allMgComptaEmail" placeholder="Email comptable">
+    <input id="allMgComptaTel" placeholder="Tel comptable">
+
+    <input id="allMgRayonNom" placeholder="Nom rayon">
+    <input id="allMgRayonEmail" placeholder="Email rayon">
+    <input id="allMgRayonTel" placeholder="Tel rayon">
+  </div>
+</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button onclick="allMgSave()" style="padding:9px 18px;background:var(--accent);color:var(--primary);border:none;border-radius:8px;font-weight:900;font-size:13px;cursor:pointer">💾 Enregistrer</button>
+          <button onclick="document.getElementById('allMgFormPanel').style.display='none'" style="padding:9px 12px;background:#fff;color:#888;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px">Annuler</button>
+          <span id="allMgStatus" style="font-size:12px;color:#888"></span>
+        </div>
+      </div>
+      <div id="allMgList" style="max-height:420px;overflow-y:auto">
+        <div style="text-align:center;padding:32px;color:var(--muted);font-size:13px">Chargement...</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+<section class="page" id="page-comptabilite">
+<div class="fc-app">
+
+  <!-- ══ SIDEBAR PC ══ -->
+  <aside class="fc-sidebar">
+    <div class="fc-logo-block">
+      <div class="fc-logo-icon">🎣</div>
+      <div>
+        <div class="fc-logo-name">Frenchy Leurres</div>
+        <div class="fc-logo-sub">Comptabilité</div>
+      </div>
+    </div>
+    <div class="fc-nav-section">Principal</div>
+    <button class="fc-nav-item active" id="fcnav-dashboard" onclick="fcShowPage('dashboard')">📊 Tableau de bord</button>
+    <button class="fc-nav-item" id="fcnav-recettes" onclick="fcShowPage('recettes')">💰 Recettes</button>
+    <button class="fc-nav-item" id="fcnav-depenses" onclick="fcShowPage('depenses')">🧾 Dépenses</button>
+    <div class="fc-nav-section">Outils</div>
+    <button class="fc-nav-item" id="fcnav-saisie" onclick="fcShowPage('saisie')">📷 Ajouter une facture</button>
+    <button class="fc-nav-item" id="fcnav-exports" onclick="fcShowPage('exports')">📤 Exports</button>
+    <div class="fc-sidebar-spacer"></div>
+    <div class="fc-sidebar-footer">
+      <span id="cSupabaseBadge" class="fc-badge warn">Connexion…</span>
+      <div class="fc-user-block">
+        <div class="fc-user-avatar">JG</div>
+        <div>
+          <div class="fc-user-name">Johan G.</div>
+          <div class="fc-user-role">Micro-entreprise</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══ CONTENU PRINCIPAL ══ -->
+  <main class="fc-main">
+
+    <!-- ── FAB MOBILE : Ajouter ── -->
+    <button class="fc-fab" onclick="fcShowPage('saisie')" title="Ajouter une facture">📷</button>
+
+    <!-- ════════════════════════════
+         PAGE : TABLEAU DE BORD
+    ════════════════════════════ -->
+    <div id="fc-page-dashboard" class="fc-page">
+      <div class="fc-page-header">
+        <h2 class="fc-page-title">Tableau de bord</h2>
+      </div>
+      <div class="fc-kpi-grid">
+        <div class="fc-kpi">
+          <div class="fc-kpi-label">Total documents</div>
+          <div class="fc-kpi-value" id="cKpiDocs">0</div>
+        </div>
+        <div class="fc-kpi danger">
+          <div class="fc-kpi-label">Dépenses totales</div>
+          <div class="fc-kpi-value" id="cKpiDep">0,00 €</div>
+        </div>
+        <div class="fc-kpi success">
+          <div class="fc-kpi-label">Recettes / CA</div>
+          <div class="fc-kpi-value" id="cKpiRec">0,00 €</div>
+        </div>
+        <div class="fc-kpi gold">
+          <div class="fc-kpi-label">Résultat estimé</div>
+          <div class="fc-kpi-value" id="cKpiNet">0,00 €</div>
+        </div>
+      </div>
+      <!-- Graphique -->
+      <div class="fc-card" style="margin-bottom:14px">
+        <div class="fc-card-title">6 derniers mois</div>
+        <div id="cChart" class="fc-chart-wrap"></div>
+        <div class="fc-chart-legend">
+          <span><i class="fc-legend-dot dep"></i>Dépenses</span>
+          <span><i class="fc-legend-dot rec"></i>Recettes</span>
+        </div>
+      </div>
+      <!-- Dernières lignes -->
+      <div class="fc-card">
+        <div class="fc-card-title">Dernières entrées</div>
+        <div id="cDashList"></div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════
+         PAGE : RECETTES
+    ════════════════════════════ -->
+    <div id="fc-page-recettes" class="fc-page" style="display:none">
+      <div class="fc-page-header">
+        <h2 class="fc-page-title">Recettes</h2>
+        <button class="fc-btn-outline" onclick="fcShowPage('saisie')">+ Ajouter</button>
+      </div>
+      <div class="fc-month-bar" id="fcMonthBarRec"></div>
+      <div class="fc-year-row">
+        <select id="fcYearRec" class="fc-year-sel" onchange="fcRenderRecettes()"></select>
+        <div class="fc-kpi-inline">
+          <span class="fc-kpi-inline-val success" id="fcRecTotal">0,00 €</span>
+          <span class="fc-kpi-inline-lbl" id="fcRecCount">0 document(s)</span>
+        </div>
+      </div>
+      <div class="fc-card">
+        <div class="fc-card-title">Journal des recettes <button class="fc-export-btn" onclick="fcExportFiltered('recettes')">Exporter Excel →</button></div>
+        <div id="fcRecList" class="fc-doc-list"></div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════
+         PAGE : DEPENSES
+    ════════════════════════════ -->
+    <div id="fc-page-depenses" class="fc-page" style="display:none">
+      <div class="fc-page-header">
+        <h2 class="fc-page-title">Dépenses</h2>
+        <button class="fc-btn-outline" onclick="fcShowPage('saisie')">+ Ajouter</button>
+      </div>
+      <div class="fc-month-bar" id="fcMonthBarDep"></div>
+      <div class="fc-year-row">
+        <select id="fcYearDep" class="fc-year-sel" onchange="fcRenderDepenses()"></select>
+        <div class="fc-kpi-inline">
+          <span class="fc-kpi-inline-val danger" id="fcDepTotal">0,00 €</span>
+          <span class="fc-kpi-inline-lbl" id="fcDepCount">0 facture(s)</span>
+        </div>
+      </div>
+      <!-- Filtres catégories -->
+      <div class="fc-cat-bar" id="fcCatBar"></div>
+      <div class="fc-card">
+        <div class="fc-card-title">Factures enregistrées <button class="fc-export-btn" onclick="fcExportFiltered('depenses')">Exporter Excel →</button></div>
+        <div id="fcDepList" class="fc-doc-list"></div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════
+         PAGE : SAISIE
+    ════════════════════════════ -->
+    <div id="fc-page-saisie" class="fc-page" style="display:none">
+      <div class="fc-page-header">
+        <h2 class="fc-page-title">Ajouter une facture</h2>
+      </div>
+      <p class="fc-page-intro">L'IA analyse automatiquement votre facture, puis vous pouvez corriger les champs avant enregistrement.</p>
+      <div class="fc-capture-grid">
+        <div class="fc-capture-btn" onclick="document.getElementById('fcFileCamera').click()">
+          <div class="fc-capture-icon">📷</div>
+          <div class="fc-capture-title">Photographier une facture</div>
+          <div class="fc-capture-sub">Ouvre l'appareil photo</div>
+          <input type="file" id="fcFileCamera" accept="image/*" capture="environment" style="display:none" onchange="fcSetFile(this.files[0])">
+        </div>
+        <div class="fc-capture-btn" onclick="document.getElementById('cFile').click()">
+          <div class="fc-capture-icon">📎</div>
+          <div class="fc-capture-title">Importer depuis la galerie</div>
+          <div class="fc-capture-sub">Photo, PDF, fichier</div>
+          <input type="file" id="cFile" accept="image/*,.pdf" style="display:none" onchange="fcSetFile(this.files[0])">
+        </div>
+      </div>
+      <div id="cFileName" class="fc-file-status"></div>
+      <div id="fcAnalyzeRow" style="display:none;margin:10px 0">
+        <button id="cAnalyzeBtn" class="fc-btn-gold" onclick="comptaAnalyzeInvoice()">✨ Analyser avec l'IA</button>
+      </div>
+      <div class="fc-form-card" id="fcFormCard">
+        <div class="fc-form-grid">
+          <div class="fc-field">
+            <label>Date</label>
+            <input id="cDate" type="date">
+          </div>
+          <div class="fc-field">
+            <label>Type</label>
+            <select id="cType" onchange="fcTypeChange()">
+              <option value="depense">💸 Dépense</option>
+              <option value="recette">💰 Recette / vente</option>
+              <option value="liquide_b">💶 Liquide B</option>
+              <option value="ca_historique">📊 CA historique</option>
+              <option value="avoir">🔄 Avoir / remboursement</option>
+            </select>
+          </div>
+          <div class="fc-field">
+            <label>Fournisseur / client</label>
+            <input id="cFournisseur" placeholder="Ex : La Poste, Shopify, Cabesto…">
+          </div>
+          <div class="fc-field">
+            <label>Montant TTC (€)</label>
+            <input id="cMontant" inputmode="decimal" placeholder="Ex : 49,90">
+          </div>
+          <div class="fc-field">
+            <label>Catégorie</label>
+            <select id="cCategorie">
+              <option value="materiel_fabrication">Matériel / fabrication</option>
+              <option value="frais_materiel">Frais de matériel</option>
+              <option value="la_poste">La Poste</option>
+              <option value="frais_de_port">Frais de port</option>
+              <option value="timbres_poste">Timbres / Poste</option>
+              <option value="emballage">Emballage</option>
+              <option value="shopify_stripe_paypal">Shopify / Stripe / PayPal</option>
+              <option value="carburant">Carburant</option>
+              <option value="vente_boutique">Vente boutique</option>
+              <option value="vente_pro">Vente pro magasin</option>
+              <option value="liquide_b">Liquide B</option>
+              <option value="depot_banque">Dépôt banque</option>
+              <option value="ca_historique">CA historique</option>
+              <option value="general">Général</option>
+            </select>
+          </div>
+          <div class="fc-field">
+            <label>Paiement</label>
+            <select id="cPaiement">
+              <option value="a_classer">À classer</option>
+              <option value="cb">Carte bancaire</option>
+              <option value="paypal">PayPal</option>
+              <option value="stripe">Stripe</option>
+              <option value="virement">Virement</option>
+              <option value="especes">Espèces</option>
+              <option value="depot_banque">Dépôt banque</option>
+            </select>
+          </div>
+        </div>
+        <div class="fc-field" style="margin-top:10px">
+          <label>Notes</label>
+          <textarea id="cNotes" placeholder="Ex : ticket essence, facture silicone, CA janvier 2025…"></textarea>
+        </div>
+        <div id="comptaStatus" class="fc-status"></div>
+        <div class="fc-form-actions">
+          <button class="fc-btn-gold" onclick="comptaSave()">💾 Enregistrer</button>
+          <button class="fc-btn-ghost" onclick="comptaReset()">↩ Vider</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════
+         PAGE : EXPORTS
+    ════════════════════════════ -->
+    <div id="fc-page-exports" class="fc-page" style="display:none">
+      <div class="fc-page-header">
+        <h2 class="fc-page-title">Exports</h2>
+      </div>
+      <div class="fc-export-grid">
+        <div class="fc-export-card" onclick="comptaExportFinDeMois()" style="border:2px solid #e8c840;background:#fffdf0">
+          <div class="fc-export-ico">📥</div>
+          <div class="fc-export-title" style="color:#7a6200">📋 Bilan fin de mois</div>
+          <div class="fc-export-desc" style="color:#7a6200">CSV complet pour ton comptable — dépenses, recettes, résultat, liens factures. Compatible Excel.</div>
+        </div>
+        <div class="fc-export-card" onclick="comptaExportAllCsv()">
+          <div class="fc-export-ico">📦</div>
+          <div class="fc-export-title">Export complet CSV</div>
+          <div class="fc-export-desc">Toutes les lignes de tous les mois</div>
+        </div>
+        <div class="fc-export-card" onclick="comptaExportJson()">
+          <div class="fc-export-ico">🧷</div>
+          <div class="fc-export-title">Backup JSON</div>
+          <div class="fc-export-desc">Sauvegarde complète des données</div>
+        </div>
+      </div>
+      <div class="fc-card" style="margin-top:14px">
+        <div class="fc-card-title">📱 Version mobile</div>
+        <p style="color:#aaa;font-size:13px;line-height:1.6">Ouvre <b>MOBILE_CAPTURE_FACTURE.html</b> sur ton téléphone, ajoute-le à l'écran d'accueil. Les lignes s'ajoutent ici automatiquement via Supabase.</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ══ BOTTOM NAV MOBILE ══ -->
+  <nav class="fc-bottom-nav">
+    <button class="fc-bnav active" id="fcbnav-dashboard" onclick="fcShowPage('dashboard')">🏠<span>Accueil</span></button>
+    <button class="fc-bnav" id="fcbnav-recettes" onclick="fcShowPage('recettes')">💰<span>Recettes</span></button>
+    <button class="fc-bnav" id="fcbnav-depenses" onclick="fcShowPage('depenses')">🧾<span>Dépenses</span></button>
+    <button class="fc-bnav" id="fcbnav-saisie" onclick="fcShowPage('saisie')">📷<span>Facture</span></button>
+    <button class="fc-bnav" id="fcbnav-exports" onclick="fcShowPage('exports')">📤<span>Exports</span></button>
+  </nav>
+
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     PAGE : MAGASINS
+═══════════════════════════════════════════ -->
+<section class="page" id="page-magasins">
+<div class="mg-wrap">
+
+  <div class="mg-header">
+    <div>
+      <h2 class="mg-title">🗺️ Magasins & Clients B2B</h2>
+      <div class="mg-subtitle">Tous tes partenaires — crée un compte pro en 1 clic</div>
+    </div>
+    <div class="mg-header-actions">
+      <span id="mgSupabaseBadge" class="mg-badge">—</span>
+      <button class="mg-btn mg-gold" onclick="mgShowAdd()">➕ Nouveau magasin</button>
+    </div>
+  </div>
+
+  <!-- Barre filtres -->
+  <div class="mg-filters">
+    <input id="mgSearch" class="mg-search" placeholder="🔍 Rechercher un magasin, ville, email…" oninput="mgRender()">
+    <select id="mgFilterType" class="mg-sel" onchange="mgRender()">
+      <option value="">Tous les types</option>
+      <option value="magasin">Magasins</option>
+      <option value="cabesto">Cabesto</option>
+    </select>
+    <select id="mgFilterStatut" class="mg-sel" onchange="mgRender()">
+      <option value="">Tous les statuts</option>
+      <option value="pro">Compte pro validé</option>
+      <option value="prospect">Prospect</option>
+    </select>
+  </div>
+
+  <!-- Stats -->
+  <div class="mg-stats">
+    <div class="mg-stat"><div class="mg-stat-val" id="mgKpiTotal">—</div><div class="mg-stat-lbl">Total</div></div>
+    <div class="mg-stat"><div class="mg-stat-val" id="mgKpiMag">—</div><div class="mg-stat-lbl">Magasins</div></div>
+    <div class="mg-stat"><div class="mg-stat-val" id="mgKpiCab">—</div><div class="mg-stat-lbl">Cabesto</div></div>
+    <div class="mg-stat success"><div class="mg-stat-val" id="mgStatPro">—</div><div class="mg-stat-lbl">Comptes pro</div></div>
+  </div>
+
+  <!-- Layout -->
+  <div class="mg-layout">
+    <div class="mg-list-col">
+      <div id="mgList" class="mg-list"></div>
+    </div>
+    <div class="mg-form-col" id="mgFormCol" style="display:none">
+      <div class="mg-form-card">
+        <div class="mg-form-title" id="mgFormTitle">➕ Nouveau magasin</div>
+        <input type="hidden" id="mgEditId">
+        <div class="mg-form-grid">
+          <div class="mg-field mg-full">
+            <label>Nom du magasin *</label>
+            <input id="mgNom" type="text" placeholder="Ex : Top Fishing Sausset">
+          </div>
+          <div class="mg-field">
+            <label>Type</label>
+            <select id="mgType">
+              <option value="magasin">Magasin</option>
+              <option value="cabesto">Cabesto</option>
+            </select>
+          </div>
+          <div class="mg-field">
+            <label>Département</label>
+            <input id="mgDept" type="text" placeholder="13">
+          </div>
+          <div class="mg-field">
+            <label>Téléphone</label>
+            <input id="mgTel" type="tel" placeholder="04 00 00 00 00">
+          </div>
+          <div class="mg-field">
+            <label>Email</label>
+            <input id="mgEmail" type="email" placeholder="contact@magasin.fr">
+          </div>
+          <div class="mg-field mg-full">
+            <label>Adresse</label>
+            <textarea id="mgAdresse" placeholder="Adresse complète"></textarea>
+          </div>
+          <div class="mg-field">
+            <label>SIRET</label>
+            <input id="mgSiret" type="text" placeholder="00000000000000">
+          </div>
+          <div class="mg-field">
+            <label>N° TVA</label>
+            <input id="mgTva" type="text" placeholder="FR00000000000">
+          </div>
+          <div class="mg-field mg-full">
+            <label>Adresse de facturation (si différente)</label>
+            <textarea id="mgAdresseFact" placeholder="Laisser vide si identique à l'adresse ci-dessus" style="min-height:50px"></textarea>
+          </div>
+          <div class="mg-field mg-full">
+            <label>Notes / Conditions</label>
+            <input id="mgNotes" type="text" placeholder="Franco 150€ HT, remise 20%...">
+          </div>
+        </div>
+        <div class="mg-form-actions">
+          <button class="mg-btn mg-gold" onclick="mgSave()">💾 Enregistrer</button>
+          <button class="mg-btn mg-ghost" onclick="mgHideForm()">✖ Annuler</button>
+        </div>
+        <div id="mgStatus" class="mg-status"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     PAGE : PRODUITS
+═══════════════════════════════════════════ -->
+<section class="page" id="page-produits">
+<div class="pd-wrap">
+
+  <div class="pd-header">
+    <div>
+      <h2 class="pd-title">📦 Catalogue Produits</h2>
+      <div class="pd-subtitle">Base de données complète — <span id="pdTotalCount">—</span> références</div>
+    </div>
+    <div class="pd-header-actions">
+      <button class="pd-btn pd-gold" onclick="pdShowAdd()">➕ Nouveau produit</button>
+    </div>
+  </div>
+
+  <!-- Filtres -->
+  <div class="pd-filters">
+    <input id="pdSearch" class="pd-search" placeholder="🔍 Nom, couleur, taille, EAN13, référence…" oninput="pdRender()">
+    <select id="pdFilterFamille" class="pd-sel" onchange="pdRender()">
+      <option value="">Toutes les familles</option>
+    </select>
+  </div>
+
+  <!-- Layout -->
+  <div class="pd-layout">
+
+    <!-- Liste produits -->
+    <div class="pd-list-col">
+      <div id="pdList" class="pd-list"></div>
+    </div>
+
+    <!-- Formulaire ajout -->
+    <div class="pd-form-col" id="pdFormCol" style="display:none">
+      <div class="pd-form-card">
+        <div class="pd-form-title" id="pdFormTitle">➕ Nouveau produit</div>
+        <input type="hidden" id="pdEditId">
+        <div class="pd-form-grid">
+          <div class="pd-field">
+            <label>Référence *</label>
+            <input id="pdRef" type="text" placeholder="Ex : MISTIK-VE-9-12">
+          </div>
+          <div class="pd-field">
+            <label>Famille *</label>
+            <input id="pdFamille" type="text" placeholder="Ex : Mistik Shad" list="pdFamilleList">
+            <datalist id="pdFamilleList"></datalist>
+          </div>
+          <div class="pd-field pd-full">
+            <label>Nom produit *</label>
+            <input id="pdNom" type="text" placeholder="Ex : Mistik Shad">
+          </div>
+          <div class="pd-field">
+            <label>Couleur</label>
+            <input id="pdCouleur" type="text" placeholder="Ex : Vert Electric">
+          </div>
+          <div class="pd-field">
+            <label>Taille</label>
+            <input id="pdTaille" type="text" placeholder="Ex : 9 cm">
+          </div>
+          <div class="pd-field">
+            <label>Grammage</label>
+            <input id="pdGrammage" type="text" placeholder="Ex : 12 g">
+          </div>
+          <div class="pd-field">
+            <label>Conditionnement</label>
+            <input id="pdCond" type="text" placeholder="Ex : x1">
+          </div>
+          <div class="pd-field">
+            <label>Prix HT €</label>
+            <input id="pdHt" type="number" step="0.01" placeholder="2.60">
+          </div>
+          <div class="pd-field">
+            <label>PVC €</label>
+            <input id="pdPvc" type="number" step="0.01" placeholder="6.90">
+          </div>
+          <div class="pd-field pd-full">
+            <label>EAN-13 *</label>
+            <input id="pdEan" type="text" placeholder="13 chiffres" maxlength="13" oninput="pdCheckEan()">
+            <div id="pdEanStatus" class="pd-ean-status"></div>
+          </div>
+          <div class="pd-field">
+            <label>Étiquette ronde ?</label>
+            <select id="pdRonde">
+              <option value="0">Non</option>
+              <option value="1">Oui (Rouget)</option>
+            </select>
+          </div>
+          <div class="pd-field">
+            <label>Notes</label>
+            <input id="pdNotes" type="text" placeholder="Notes optionnelles">
+          </div>
+        </div>
+        <div class="pd-form-actions">
+          <button class="pd-btn pd-gold" onclick="pdSave()">💾 Enregistrer</button>
+          <button class="pd-btn pd-ghost" onclick="pdHideForm()">✖ Annuler</button>
+        </div>
+        <div id="pdStatus" class="pd-status"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</section>
+
+<div id="pToast"></div>
+<script src="catalogue.js"></script>
+<script src="app.js"></script>
+<script src="comptes-pro.js"></script>
+<script src="comptabilite.js"></script>
+<script id="fl-v39-nav-clean">
+(function(){
+  function safeRefresh(name){
+    try{ if(name==='catalogue' && typeof window.renderCatalogue==='function') window.renderCatalogue(); }catch(e){ console.warn('Catalogue non bloquant:', e); }
+    try{ if(name==='impression' && typeof window.renderQueues==='function') window.renderQueues(); }catch(e){ console.warn('Impression non bloquant:', e); }
+    try{ if(name==='comptes-pro'){
+      if(typeof window.pLoadList==='function') window.pLoadList();
+      if(typeof window.loadSigForm==='function') window.loadSigForm();
+    }}catch(e){ console.warn('Comptes pro non bloquant:', e); }
+    try{ if(name==='comptabilite' && typeof window.comptaLoad==='function') window.comptaLoad(); }catch(e){ console.warn('Comptabilité non bloquante:', e); }
+    try{ if(name==='magasins' && typeof window._mgLoad==='function') window._mgLoad(); }catch(e){ console.warn('Magasins non bloquant:', e); }
+    try{ if(name==='produits' && typeof window._pdLoad==='function') window._pdLoad(); }catch(e){ console.warn('Produits non bloquant:', e); }
+  }
+  window.showTab = function(name){
+    try{
+      var pages = document.querySelectorAll('.page');
+      var tabs = document.querySelectorAll('.tab-btn');
+      for(var i=0;i<pages.length;i++){
+        pages[i].classList.remove('active');
+        pages[i].style.display = 'none';
+      }
+      for(var j=0;j<tabs.length;j++) tabs[j].classList.remove('active');
+      var page = document.getElementById('page-' + name);
+      var tab = document.getElementById('tab-' + name);
+      if(!page){ console.error('Onglet introuvable:', name); return false; }
+      page.classList.add('active');
+      page.style.display = 'block';
+      if(tab) tab.classList.add('active');
+      safeRefresh(name);
+      return true;
+    }catch(err){ console.error('Erreur navigation V39:', err); return false; }
+  };
+  function bindTabs(){
+    var tabs = document.querySelectorAll('.tab-btn');
+    for(var i=0;i<tabs.length;i++){
+      tabs[i].onclick = null;
+      tabs[i].addEventListener('click', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        var name = (this.id || '').replace(/^tab-/, '') || this.getAttribute('data-tab') || '';
+        if(name) window.showTab(name);
+      }, true);
+    }
+    var active = document.querySelector('.page.active');
+    if(active){ active.style.display='block'; }
+    else { window.showTab('commande'); }
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindTabs);
+  else bindTabs();
+  window.addEventListener('load', bindTabs);
+})();
+</script>
+
+
+<!-- ══ MODAL SHOPIFY (global) ══ -->
+<div id="modalShopify" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;padding:20px;overflow-y:auto">
+  <div style="background:#111;border:1px solid #333;border-radius:16px;max-width:560px;margin:60px auto;padding:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <div style="color:#e8c840;font-weight:900;font-size:16px">🛒 Créer dans Shopify</div>
+        <div style="color:#666;font-size:12px;margin-top:2px">Copie les infos puis ouvre Shopify</div>
+      </div>
+      <button onclick="document.getElementById('modalShopify').style.display='none'" style="background:none;border:none;color:#666;font-size:28px;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="background:#0a0a0a;border:1px solid #1e1e1e;border-radius:10px;padding:16px;margin-bottom:14px;font-size:13px;line-height:2;color:#ccc;white-space:pre-wrap;font-family:monospace" id="shopifyClientInfo">—</div>
+    <div style="background:#1a1200;border:1px solid #e8c84033;border-radius:8px;padding:10px 14px;font-size:12px;color:#e8c840;margin-bottom:14px">
+      💡 Dans Shopify : Clients → Nouveau client → colle les infos + applique les tags
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="pCopyShopifyInfo()" style="flex:1;padding:12px;background:#e8c840;color:#111;border:none;border-radius:10px;font-weight:900;font-size:14px;cursor:pointer">📋 Copier les infos</button>
+      <button onclick="window.open('https://admin.shopify.com/store/b761b5-b6/customers/new','_blank')" style="flex:1;padding:12px;background:#1a3a2a;color:#00c896;border:1px solid #00c89666;border-radius:10px;font-weight:900;font-size:14px;cursor:pointer">🛒 Ouvrir Shopify →</button>
+    </div>
+  </div>
+</div>
+
+<script src="magasins.js"></script>
+<script src="produits.js"></script>
+
+<!-- ══ MODAL EMAIL PREVIEW ══ -->
+<div id="modalEmail" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;padding:16px;overflow-y:auto;">
+  <div style="background:#fff;border-radius:16px;max-width:640px;margin:30px auto;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+    <!-- Header modal -->
+    <div style="background:#1a1a1a;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="color:#e8c840;font-weight:900;font-size:15px;">📧 Aperçu de l'email</div>
+        <div id="emailModalMeta" style="color:#666;font-size:12px;margin-top:3px;"></div>
+      </div>
+      <button onclick="document.getElementById('modalEmail').style.display='none'"
+        style="background:none;border:none;color:#666;font-size:28px;cursor:pointer;line-height:1;">×</button>
+    </div>
+    <!-- Preview iframe -->
+    <div style="background:#f4f4f0;padding:12px;">
+      <iframe id="emailPreviewFrame" style="width:100%;height:520px;border:none;border-radius:8px;background:#fff;"
+        sandbox="allow-same-origin"></iframe>
+    </div>
+    <!-- Actions -->
+    <div style="padding:16px 24px;display:flex;gap:10px;flex-wrap:wrap;background:#f8f8f4;border-top:1px solid #e8e6e0;">
+      <button onclick="pCopyEmailHtml()"
+        style="flex:1;padding:13px;background:#e8c840;color:#1a1a1a;border:none;border-radius:10px;font-weight:900;font-size:14px;cursor:pointer;min-width:160px;">
+        📋 Copier pour Gmail
+      </button>
+      <button onclick="pOpenGmail()"
+        style="flex:1;padding:13px;background:#1a1a1a;color:#e8c840;border:none;border-radius:10px;font-weight:900;font-size:14px;cursor:pointer;min-width:160px;">
+        ✉️ Ouvrir Gmail
+      </button>
+      <button onclick="document.getElementById('modalEmail').style.display='none'"
+        style="padding:13px 20px;background:#fff;color:#888;border:1px solid #ddd;border-radius:10px;cursor:pointer;font-size:13px;">
+        Fermer
+      </button>
+    </div>
+    <!-- Aide -->
+    <div style="padding:12px 24px;background:#fff8e1;border-top:1px solid #f0e080;">
+      <div style="font-size:12px;color:#7a5800;line-height:1.6;">
+        💡 <strong>Comment envoyer :</strong>
+        Clique <strong>Copier pour Gmail</strong> → Ouvre Gmail → Nouveau message → remplis le destinataire → colle <strong>(Ctrl+V)</strong> dans le corps → Envoie. L'email apparaîtra avec le beau design.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ PAGE : SHOPIFY ═══════════════════════════════ -->
+<section class="page" id="page-shopify">
+<style>
+#shopify-store-tabs{display:flex;gap:8px;margin-bottom:16px;}
+.shp-store-btn{flex:1;padding:12px;border:2px solid #ddd;border-radius:10px;background:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;}
+.shp-store-btn.active{border-color:#96bf48;background:#96bf48;color:#fff;}
+.shp-store-btn.ravager.active{background:#e8312a;border-color:#e8312a;color:#fff;}
+#shp-filters{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;}
+#shp-filters select,#shp-filters input{padding:8px 12px;border-radius:8px;border:1px solid #ddd;font-size:13px;}
+#shp-filters input{flex:1;min-width:140px;}
+#shp-stats{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+.shp-stat{background:#f5f5f5;border-radius:8px;padding:10px 14px;font-size:11px;font-weight:700;color:#555;flex:1;min-width:80px;}
+.shp-stat span{font-size:18px;display:block;color:#222;margin-bottom:2px;}
+.shp-badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase;white-space:nowrap;}
+.shp-badge.paid{background:#e6f4ea;color:#1a7f37;}
+.shp-badge.pending,.shp-badge.partially_paid{background:#fff8e1;color:#9a6700;}
+.shp-badge.refunded,.shp-badge.voided{background:#fce8e6;color:#c62828;}
+.shp-badge.fulfilled{background:#e3f2fd;color:#1565c0;}
+.shp-badge.unfulfilled{background:#fce8e6;color:#c62828;}
+.shp-badge.partial{background:#fff3e0;color:#e65100;}
+.shp-month{margin-bottom:10px;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb;}
+.shp-month-header{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#1a1a1a;color:#fff;cursor:pointer;user-select:none;-webkit-user-select:none;}
+.shp-month-header:hover{background:#2a2a2a;}
+.shp-month-toggle{font-size:12px;transition:transform .2s;flex-shrink:0;width:14px;}
+.shp-month-title{flex:1;font-size:14px;font-weight:700;text-transform:capitalize;}
+.shp-month-meta{font-size:11px;color:#aaa;display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.shp-month-ca{font-size:14px;font-weight:700;color:#96bf48;white-space:nowrap;}
+.shp-month-body{display:none;}
+.shp-month-body.open{display:block;}
+.shp-order-row{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid #f0f0f0;flex-wrap:wrap;background:#fff;}
+.shp-order-row:hover{background:#fafafa;}
+.shp-order-num{font-weight:700;font-size:12px;color:#222;min-width:46px;flex-shrink:0;}
+.shp-order-date{font-size:11px;color:#888;min-width:40px;flex-shrink:0;}
+.shp-order-client{font-size:12px;font-weight:600;flex:1;min-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.shp-order-price{font-size:12px;font-weight:700;color:#222;flex-shrink:0;}
+.shp-order-badges{display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;}
+.shp-order-articles{font-size:10px;color:#999;width:100%;padding-top:3px;line-height:1.4;word-break:break-word;}
+.shp-products{padding:12px 16px;background:#f9fafb;border-top:2px solid #eee;}
+.shp-products-title{font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
+.shp-prod-list{display:flex;flex-direction:column;gap:5px;}
+.shp-prod-item{display:flex;align-items:center;gap:8px;font-size:12px;}
+.shp-prod-qty{font-weight:700;min-width:28px;color:#e8312a;flex-shrink:0;}
+.shp-prod-name{flex:1;color:#333;line-height:1.3;}
+.shp-prod-rev{font-size:11px;color:#888;flex-shrink:0;white-space:nowrap;}
+.shp-prod-bar{height:3px;background:#96bf48;border-radius:2px;margin-top:2px;opacity:.5;}
+#shp-loading{text-align:center;padding:30px;color:#888;}
+#shp-progress{font-size:12px;color:#96bf48;text-align:center;padding:4px 0;margin-bottom:8px;}
+.shp-notif-dot{display:none;background:#e8312a;color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 7px;margin-left:6px;vertical-align:middle;animation:shp-blink 1.2s infinite;}
+@keyframes shp-blink{0%,100%{opacity:1;}50%{opacity:.4;}}
+</style>
+<div class="card">
+  <div class="card-title">&#x1F6D2; Commandes Shopify</div>
+  <div id="shopify-store-tabs">
+    <button class="shp-store-btn ravager active" onclick="shpSelectStore('ravager')">&#x1F3A3; RAVAGER <span class="shp-notif-dot" id="shp-dot-ravager"></span></button>
+    <button class="shp-store-btn frenchy" onclick="shpSelectStore('frenchy')">&#x1F41F; Frenchy Leurres <span class="shp-notif-dot" id="shp-dot-frenchy"></span></button>
+  </div>
+  <div id="shp-error" style="background:#fce8e6;color:#c62828;padding:12px 16px;border-radius:8px;margin-bottom:12px;display:none;"></div>
+  <div id="shp-progress" style="display:none;"></div>
+  <div id="shp-stats">
+    <div class="shp-stat"><span id="shp-count">—</span>Commandes</div>
+    <div class="shp-stat"><span id="shp-total">—</span>CA total</div>
+    <div class="shp-stat"><span id="shp-unpaid">—</span>Non payées</div>
+    <div class="shp-stat"><span id="shp-unfulfilled">—</span>Non expédiées</div>
+  </div>
+  <div id="shp-filters">
+    <select id="shp-status" onchange="shpLoad()">
+      <option value="any">Toutes</option>
+      <option value="open">Ouvertes</option>
+      <option value="closed">Fermées</option>
+      <option value="cancelled">Annulées</option>
+    </select>
+    <input type="text" id="shp-search" placeholder="Rechercher client, produit..." oninput="shpRender()">
+  </div>
+  <div id="shp-loading" style="display:none;">Chargement des commandes...</div>
+  <div id="shp-months"></div>
+</div>
+<script>
+(function(){
+  var _store='ravager',_orders=[],_busy=false;
+  var MOIS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+  window.shpSelectStore=function(s){
+    _store=s;_orders=[];
+    document.querySelectorAll('.shp-store-btn').forEach(function(b){b.classList.remove('active');});
+    var btn=document.querySelector('.shp-store-btn.'+s);if(btn)btn.classList.add('active');
+    shpLoad();
+  };
+
+  window.shpLoad=function(){
+    if(_busy)return;
+    _orders=[];_busy=true;
+    var c=document.getElementById('shp-months');c.innerHTML='';
+    document.getElementById('shp-loading').style.display='block';
+    document.getElementById('shp-progress').style.display='none';
+    document.getElementById('shp-error').style.display='none';
+    _fetchAll(null);
+  };
+
+  function _fetchAll(pi){
+    var status=document.getElementById('shp-status').value;
+    var url='/api/shopify-orders?store='+_store+'&status='+status+'&limit=250';
+    if(pi)url+='&page_info='+encodeURIComponent(pi);
+    fetch(url).then(function(r){return r.json();}).then(function(d){
+      if(!d.ok){
+        _busy=false;
+        document.getElementById('shp-loading').style.display='none';
+        var el=document.getElementById('shp-error');el.textContent='Erreur : '+d.error;el.style.display='block';
+        return;
+      }
+      _orders=_orders.concat(d.orders||[]);
+      var prog=document.getElementById('shp-progress');
+      if(d.next_page_info){
+        prog.style.display='block';
+        prog.textContent='Chargement... '+_orders.length+' commandes récupérées';
+        _fetchAll(d.next_page_info);
+      } else {
+        _busy=false;
+        document.getElementById('shp-loading').style.display='none';
+        prog.style.display='none';
+        shpRender();
+      }
+    }).catch(function(e){
+      _busy=false;
+      document.getElementById('shp-loading').style.display='none';
+      var el=document.getElementById('shp-error');el.textContent='Erreur réseau : '+e.message;el.style.display='block';
+    });
+  }
+
+  window.shpRender=function(){
+    var q=(document.getElementById('shp-search').value||'').toLowerCase().trim();
+    var all=_orders;
+    if(q){
+      all=all.filter(function(x){
+        var ba=x.billing_address||{};
+        var client=((ba.first_name||'')+' '+(ba.last_name||'')).trim()||x.email||'';
+        var items=(x.line_items||[]).map(function(l){return l.name||'';}).join(' ');
+        return String(x.order_number).includes(q)||client.toLowerCase().includes(q)||
+               items.toLowerCase().includes(q)||(x.email||'').toLowerCase().includes(q);
+      });
+    }
+
+    var total=all.reduce(function(s,x){return s+parseFloat(x.total_price||0);},0);
+    var unpaid=all.filter(function(x){return x.financial_status!=='paid';}).length;
+    var unful=all.filter(function(x){return !x.fulfillment_status||x.fulfillment_status==='unfulfilled';}).length;
+    document.getElementById('shp-count').textContent=all.length;
+    document.getElementById('shp-total').textContent=total.toFixed(2)+' €';
+    document.getElementById('shp-unpaid').textContent=unpaid;
+    document.getElementById('shp-unfulfilled').textContent=unful;
+
+    var byMonth={};
+    all.forEach(function(x){
+      var k=x.created_at?x.created_at.substring(0,7):'0000-00';
+      if(!byMonth[k])byMonth[k]=[];
+      byMonth[k].push(x);
+    });
+    var keys=Object.keys(byMonth).sort().reverse();
+
+    var container=document.getElementById('shp-months');
+    container.innerHTML='';
+    var nowKey=new Date().toISOString().substring(0,7);
+
+    keys.forEach(function(key,idx){
+      var list=byMonth[key];
+      var parts=key.split('-');
+      var label=MOIS[parseInt(parts[1],10)-1]+' '+parts[0];
+      var mTotal=list.reduce(function(s,x){return s+parseFloat(x.total_price||0);},0);
+      var mUnful=list.filter(function(x){return !x.fulfillment_status||x.fulfillment_status==='unfulfilled';}).length;
+      var isNow=(key===nowKey);
+
+      var wrap=document.createElement('div');wrap.className='shp-month';
+
+      var hdr=document.createElement('div');hdr.className='shp-month-header';
+      var tgl=document.createElement('span');tgl.className='shp-month-toggle';tgl.textContent='▶';
+      var ttl=document.createElement('span');ttl.className='shp-month-title';
+      ttl.textContent=label+(isNow?' · en cours':'');
+      var meta=document.createElement('span');meta.className='shp-month-meta';
+      var cntEl=document.createElement('span');cntEl.textContent=list.length+' commande'+(list.length>1?'s':'');
+      meta.appendChild(cntEl);
+      if(mUnful>0){var uEl=document.createElement('span');uEl.style.color='#e8312a';uEl.textContent=mUnful+' à expédier';meta.appendChild(uEl);}
+      var caEl=document.createElement('span');caEl.className='shp-month-ca';caEl.textContent=mTotal.toFixed(2)+' €';
+      hdr.appendChild(tgl);hdr.appendChild(ttl);hdr.appendChild(meta);hdr.appendChild(caEl);
+
+      var body=document.createElement('div');body.className='shp-month-body';
+      _buildMonthBody(body,list);
+
+      hdr.addEventListener('click',function(){
+        var open=body.classList.toggle('open');
+        tgl.textContent=open?'▼':'▶';
+      });
+
+      if(isNow||idx===0){body.classList.add('open');tgl.textContent='▼';}
+
+      wrap.appendChild(hdr);wrap.appendChild(body);
+      container.appendChild(wrap);
+    });
+
+    if(!keys.length){
+      var empty=document.createElement('div');
+      empty.style.cssText='text-align:center;padding:30px;color:#888;';
+      empty.textContent='Aucune commande trouvée.';
+      container.appendChild(empty);
+    }
+  };
+
+  function _buildMonthBody(body,list){
+    list.forEach(function(x){
+      var ba=x.billing_address||{};
+      var client=((ba.first_name||'')+' '+(ba.last_name||'')).trim()||x.email||'—';
+      var date=x.created_at?x.created_at.substring(5,10).replace('-','/'):'';
+      var price=parseFloat(x.total_price||0).toFixed(2)+' '+(x.currency||'€');
+      var fPay=x.financial_status||'';
+      var fFul=x.fulfillment_status||'unfulfilled';
+      var items=x.line_items||[];
+      var artSummary=items.length<=1
+        ? (items.length?((items[0].quantity||1)+'× '+((items[0].name||'').substring(0,50))):'—')
+        : items.length+' articles : '+items.slice(0,3).map(function(l){return (l.quantity||1)+'× '+((l.name||'').substring(0,30));}).join(' · ')+(items.length>3?' …':'');
+
+      var row=document.createElement('div');row.className='shp-order-row';
+
+      function mk(cls,txt){var s=document.createElement('span');s.className=cls;s.textContent=txt;return s;}
+      function mkBadge(cls,txt){var s=document.createElement('span');s.className='shp-badge '+cls;s.textContent=txt;return s;}
+
+      var payLabel={paid:'Payé',pending:'En attente',refunded:'Remboursé',voided:'Annulé',partially_paid:'Partiel'};
+      var fulLabel={fulfilled:'Expédié',unfulfilled:'À expédier',partial:'Partiel',restocked:'Restocké'};
+
+      var bdgs=document.createElement('span');bdgs.className='shp-order-badges';
+      bdgs.appendChild(mkBadge(fPay,payLabel[fPay]||fPay));
+      bdgs.appendChild(mkBadge(fFul,fulLabel[fFul]||fFul));
+
+      var artEl=document.createElement('span');artEl.className='shp-order-articles';artEl.textContent=artSummary;
+
+      row.appendChild(mk('shp-order-num','#'+x.order_number));
+      row.appendChild(mk('shp-order-date',date));
+      row.appendChild(mk('shp-order-client',client));
+      row.appendChild(mk('shp-order-price',price));
+      row.appendChild(bdgs);
+      row.appendChild(artEl);
+      body.appendChild(row);
+    });
+
+    // Listing produits du mois
+    var prodMap={};
+    list.forEach(function(x){
+      (x.line_items||[]).forEach(function(l){
+        var name=(l.name||'Inconnu').substring(0,70);
+        if(!prodMap[name])prodMap[name]={qty:0,rev:0};
+        prodMap[name].qty+=(l.quantity||1);
+        prodMap[name].rev+=parseFloat(l.price||0)*(l.quantity||1);
+      });
+    });
+    var prods=Object.keys(prodMap).map(function(n){return {name:n,qty:prodMap[n].qty,rev:prodMap[n].rev};});
+    prods.sort(function(a,b){return b.qty-a.qty;});
+
+    if(!prods.length)return;
+    var maxQty=prods[0].qty||1;
+    var sec=document.createElement('div');sec.className='shp-products';
+    var th=document.createElement('div');th.className='shp-products-title';th.textContent='Produits vendus ce mois';
+    sec.appendChild(th);
+    var ul=document.createElement('div');ul.className='shp-prod-list';
+    prods.forEach(function(p){
+      var item=document.createElement('div');item.className='shp-prod-item';
+      var qEl=document.createElement('span');qEl.className='shp-prod-qty';qEl.textContent='×'+p.qty;
+      var nEl=document.createElement('span');nEl.className='shp-prod-name';
+      var bar=document.createElement('div');bar.className='shp-prod-bar';bar.style.width=Math.round(p.qty/maxQty*100)+'px';
+      nEl.textContent=p.name;nEl.appendChild(bar);
+      var rEl=document.createElement('span');rEl.className='shp-prod-rev';rEl.textContent=p.rev.toFixed(2)+' €';
+      item.appendChild(qEl);item.appendChild(nEl);item.appendChild(rEl);
+      ul.appendChild(item);
+    });
+    sec.appendChild(ul);body.appendChild(sec);
+  }
+
+  var _loaded=false,_orig=window.showTab;
+  window.showTab=function(id){if(typeof _orig==='function')_orig(id);if(id==='shopify'&&!_loaded){_loaded=true;shpLoad();}};
+})();
+</script>
+
+<script>
+/* ── Notifications nouvelles commandes ── */
+(function(){
+  if(window.Notification&&Notification.permission==='default'){
+    Notification.requestPermission();
+  }
+  var STORES=['ravager','frenchy'];
+  var LABELS={ravager:'RAVAGER',frenchy:'Frenchy Leurres'};
+  var newCounts={ravager:0,frenchy:0};
+
+  function getLastId(s){return localStorage.getItem('shp_last_'+s)||'';}
+  function setLastId(s,id){localStorage.setItem('shp_last_'+s,String(id));}
+
+  function playPing(){
+    try{
+      var ctx=new(window.AudioContext||window.webkitAudioContext)();
+      var osc=ctx.createOscillator(),gain=ctx.createGain();
+      osc.connect(gain);gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(1047,ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(784,ctx.currentTime+0.15);
+      gain.gain.setValueAtTime(0.25,ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.4);
+      osc.start();osc.stop(ctx.currentTime+0.4);
+    }catch(e){}
+  }
+
+  function updateBadge(s){
+    var dot=document.getElementById('shp-dot-'+s);
+    if(!dot)return;
+    var n=newCounts[s];
+    if(n>0){dot.textContent=n;dot.style.display='inline-block';}
+    else{dot.style.display='none';}
+  }
+
+  function checkStore(s){
+    fetch('/api/shopify-orders?store='+s+'&status=any&limit=10')
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(!d.ok||!d.orders||!d.orders.length)return;
+        var lastId=getLastId(s);
+        var latest=d.orders[0];
+        var latestId=String(latest.id||latest.order_number||'');
+        if(!lastId){setLastId(s,latestId);return;}
+        if(latestId===lastId)return;
+        var news=[];
+        for(var i=0;i<d.orders.length;i++){
+          var oid=String(d.orders[i].id||d.orders[i].order_number||'');
+          if(oid===lastId)break;
+          news.push(d.orders[i]);
+        }
+        if(!news.length)return;
+        setLastId(s,latestId);
+        newCounts[s]+=news.length;
+        updateBadge(s);
+        playPing();
+        if(window.Notification&&Notification.permission==='granted'){
+          var o=news[0];
+          var ba=o.billing_address||{};
+          var client=((ba.first_name||'')+' '+(ba.last_name||'')).trim()||o.email||'Client';
+          var body='#'+o.order_number+' — '+client+' — '+parseFloat(o.total_price||0).toFixed(2)+' €';
+          try{new Notification((news.length>1?news.length+' nouvelles commandes ':'Nouvelle commande ')+LABELS[s]+' !',{body:body,icon:'/logo-app.png',tag:'shp-'+s});}catch(e){}
+        }
+      }).catch(function(){});
+  }
+
+  function checkAll(){STORES.forEach(checkStore);}
+  setTimeout(checkAll,15000);
+  setInterval(checkAll,5*60*1000);
+
+  var origSel=window.shpSelectStore;
+  window.shpSelectStore=function(s){
+    newCounts[s]=0;updateBadge(s);
+    if(typeof origSel==='function')origSel(s);
+  };
+})();
+</script>
+</section>
+
+
+<!-- ═══════════════════════════════════════════
+     PAGE : BLOG RAVAGER
+═══════════════════════════════════════════ -->
+<style>
+#page-blog-ravager.active { display:flex !important; flex-direction:column; }
+#page-blog-ravager { padding:0 !important; max-width:100% !important; margin:0 !important; padding-bottom:0 !important; position:fixed !important; inset:0 !important; z-index:999; background:#0a0a0a; }
+</style>
+<section class="page" id="page-blog-ravager">
+  <div style="background:#111;border-bottom:1px solid #2a2a2a;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;">
+    <button onclick="window.showTab('shopify')" style="background:none;border:1px solid #333;color:#aaa;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">← App</button>
+    <span style="font-size:13px;font-weight:900;letter-spacing:2px;color:#cc2200;">RAVAGER</span>
+    <span style="font-size:11px;color:#666;letter-spacing:1px;text-transform:uppercase;">Blog Creator</span>
+  </div>
+  <iframe
+    id="blog-creator-frame"
+    src="ravager-blog-creator.html"
+    style="width:100%;flex:1;border:none;display:block;min-height:0;"
+    title="RAVAGER Blog Creator"
+    loading="lazy"
+  ></iframe>
+</section>
+
+<script>
+(function(){
+  var _prev = window.showTab;
+  window.showTab = function(id) {
+    if (typeof _prev === 'function') _prev(id);
+    if (id === 'blog-ravager') {
+      var p = document.getElementById('page-blog-ravager');
+      if (p) p.style.display = 'flex';
+    }
+  };
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Frenchy Leurres — Facture mobile V46 IA</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--gold:#e8c840;--bg:#070707;--panel:#121212;--line:#303030;--muted:#aaa;--ok:#68e07d;--err:#ff7b7b}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0,#2a220a 0,#0b0b0b 36%,#050505 100%);color:#fff;font-family:Arial,Helvetica,sans-serif;padding:14px}.card{background:rgba(16,16,16,.96);border:1px solid #333;border-radius:20px;padding:16px;margin-bottom:14px;box-shadow:0 12px 35px #0009}h1{font-size:21px;margin:0 0 8px}.gold{color:var(--gold)}p{color:#cfcfcf;line-height:1.45;margin:0 0 12px}.pill{display:inline-block;border:1px solid #555;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900;color:var(--gold);margin-bottom:10px}.pill.ok{color:var(--ok);border-color:#2e7d32}.pill.err{color:var(--err);border-color:#933}.drop{border:2px dashed #e8c84099;border-radius:18px;padding:30px 16px;text-align:center;background:#0d0d0d;margin:12px 0;cursor:pointer}.drop b{color:var(--gold);font-size:18px}label{display:block;color:var(--gold);font-size:12px;font-weight:900;text-transform:uppercase;margin:12px 0 6px}input,select,textarea,button{width:100%;margin:0 0 8px;padding:14px;border-radius:13px;border:1px solid #333;background:#0c0c0c;color:#fff;font-size:16px}button{background:var(--gold);color:#111;font-weight:900;border:none;cursor:pointer}.btn-dark{background:#1a1a1a;color:#eee;border:1px solid #333}.status{color:#bbb;font-size:13px;line-height:1.45;margin-top:8px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.preview{max-width:100%;border-radius:14px;margin-top:8px;border:1px solid #333;display:none}.small{font-size:12px;color:#aaa}.danger{color:#ff9d9d}@media(max-width:420px){.grid{grid-template-columns:1fr}body{padding:10px}.card{padding:14px}}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>📸 Frenchy Leurres <span class="gold">Facture mobile V46 IA</span></h1>
+  <span id="badge" class="pill">Connexion Supabase…</span>
+  <p>Page rapide téléphone : prends une photo, remplis/corrige les champs, puis clique <b>Enregistrer</b>. Clique ensuite sur Analyser pour pré-remplir les champs, puis Enregistrer. La ligne sera visible dans l’application PC si Supabase est bien prêt.</p>
+  <div id="drop" class="drop">📷<br><b>Prendre une photo / choisir facture</b><br><span class="small">Ticket, facture, PDF, image</span></div>
+  <input id="file" type="file" accept="image/*,.pdf" capture="environment" style="display:none">
+  <img id="preview" class="preview" alt="aperçu facture">
+  <div id="fileName" class="status"></div>
+  <button id="analyzeBtn" class="btn-dark">✨ Analyser la facture</button>
+  <div class="status">L’IA propose les champs. Tu peux toujours corriger à la main avant d’enregistrer.</div>
+  <div class="grid"><div><label>Date</label><input id="date" type="date"></div><div><label>Type</label><select id="type"><option value="depense">Dépense</option><option value="recette">Recette / vente</option><option value="liquide_b">Liquide B</option><option value="ca_historique">CA historique</option><option value="avoir">Avoir / remboursement</option></select></div></div>
+  <label>Fournisseur / client</label><input id="fournisseur" placeholder="Ex: La Poste, Shopify, fournisseur...">
+  <label>Montant TTC / montant encaissé</label><input id="montant" inputmode="decimal" placeholder="Ex: 49,90">
+  <div class="grid"><div><label>Catégorie</label><select id="categorie"><option value="materiel_fabrication">Matériel / fabrication</option><option value="frais_materiel">Frais de matériel</option><option value="la_poste">La Poste</option><option value="frais_de_port">Frais de port</option><option value="timbres_poste">Timbres / Poste</option><option value="emballage">Emballage</option><option value="shopify_stripe_paypal">Shopify / Stripe / PayPal</option><option value="carburant">Carburant</option><option value="vente_boutique">Vente boutique</option><option value="vente_pro">Vente pro magasin</option><option value="liquide_b">Liquide B</option><option value="depot_banque">Dépôt banque</option><option value="ca_historique">CA historique</option><option value="general">Général</option></select></div><div><label>Paiement</label><select id="paiement"><option value="a_classer">À classer</option><option value="cb">Carte bancaire</option><option value="paypal">PayPal</option><option value="stripe">Stripe</option><option value="virement">Virement</option><option value="especes">Espèces</option><option value="depot_banque">Dépôt banque</option></select></div></div>
+  <label>Notes</label><textarea id="notes" placeholder="Ex: facture silicone, dépôt liquide banque, CA janvier..."></textarea>
+  <button id="saveBtn">💾 Enregistrer dans Supabase</button>
+  <button class="btn-dark" onclick="location.href='index.html#comptabilite'">↩️ Ouvrir l’application complète</button>
+  <div id="status" class="status"></div>
+</div>
+<script>
+var PSB_URL='https://qdpkeftzdgguwfywtprz.supabase.co';
+var PSB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkcGtlZnR6ZGdndXdmeXd0cHJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU2Nzc2NTMsImV4cCI6MjA5MTI1MzY1M30.rBrXwYkkyicEujuQuUNZarODh_wST1ihCCdA4L2B6Dg';
+var TABLE='compta_documents', BUCKET='compta-factures', LOCAL_KEY='fl_compta_docs_v44_mobile';
+var file=null, sb=null;
+function $(i){return document.getElementById(i)}
+function today(){return new Date().toISOString().slice(0,10)}
+function amount(v){return parseFloat(String(v||'0').replace(/\s/g,'').replace(',','.'))||0}
+function setStatus(t){$('status').textContent=t||''}
+function setBadge(t,c){$('badge').textContent=t;$('badge').className='pill '+(c||'')}
+function getSb(){if(!sb&&window.supabase&&PSB_KEY)sb=supabase.createClient(PSB_URL,PSB_KEY);return sb}
+$('date').value=today();
+$('drop').onclick=function(){$('file').click()}
+$('file').onchange=function(e){setFile(e.target.files&&e.target.files[0])}
+$('type').onchange=function(){if(this.value==='liquide_b'){$('fournisseur').value='Liquide B';$('categorie').value='liquide_b';$('paiement').value='especes'} if(this.value==='ca_historique'){$('fournisseur').value='Chiffre d’affaires historique';$('categorie').value='ca_historique';}}
+function setFile(f){file=f;if(!f)return;$('fileName').textContent='📎 '+f.name+' — '+Math.round(f.size/1024)+' Ko';if(f.type&&f.type.indexOf('image/')===0){var r=new FileReader();r.onload=function(){$('preview').src=r.result;$('preview').style.display='block'};r.readAsDataURL(f)}var n=(f.name||'').toLowerCase();if(n.includes('poste')||n.includes('timbre')||n.includes('colissimo')){$('fournisseur').value='La Poste';$('categorie').value='la_poste';$('paiement').value='cb'}}
+async function upload(row){if(!file||!getSb())return {url:'',path:''};var ext=(file.name.split('.').pop()||'bin').replace(/[^a-z0-9]/gi,'').toLowerCase();var path=(row.date_doc||today())+'/mobile_'+Date.now()+'_'+Math.random().toString(16).slice(2)+'.'+ext;try{var up=await getSb().storage.from(BUCKET).upload(path,file,{cacheControl:'3600',upsert:false,contentType:file.type||undefined});if(up.error)return {url:'',path:''};var pub=getSb().storage.from(BUCKET).getPublicUrl(path);return {url:(pub&&pub.data&&pub.data.publicUrl)||'',path:path}}catch(e){return {url:'',path:''}}}
+
+async function fileToDataUrlForAnalysis(f){
+  if(!f)throw new Error('Aucun fichier sélectionné.');
+  if(f.type&&f.type.indexOf('image/')===0){return await new Promise(function(resolve,reject){var img=new Image(),reader=new FileReader();reader.onload=function(){img.onload=function(){var max=1600,w=img.width,h=img.height;if(w>max||h>max){var rr=Math.min(max/w,max/h);w=Math.round(w*rr);h=Math.round(h*rr)}var canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;canvas.getContext('2d').drawImage(img,0,0,w,h);resolve(canvas.toDataURL('image/jpeg',0.84))};img.onerror=reject;img.src=reader.result};reader.onerror=reject;reader.readAsDataURL(f)})}
+  return await new Promise(function(resolve,reject){var r=new FileReader();r.onload=function(){resolve(r.result)};r.onerror=reject;r.readAsDataURL(f)});
+}
+function applyAnalysis(a){if(!a)return;if(a.date_doc)$('date').value=a.date_doc;if(a.type_doc)$('type').value=a.type_doc;if(a.fournisseur)$('fournisseur').value=a.fournisseur;if(a.montant_ttc)$('montant').value=String(a.montant_ttc).replace('.',',');if(a.categorie)$('categorie').value=a.categorie;if(a.paiement)$('paiement').value=a.paiement;var note='Analyse IA facture';if(typeof a.confidence==='number')note+=' — confiance '+Math.round(a.confidence*100)+'%';if(a.notes)note+=' — '+a.notes;$('notes').value=$('notes').value?$('notes').value+'\n'+note:note;}
+async function analyzeInvoice(){if(!file){setStatus('❌ Prends une photo ou choisis une facture avant l’analyse.');return}$('analyzeBtn').disabled=true;$('analyzeBtn').textContent='⏳ Analyse IA en cours…';setStatus('⏳ Analyse IA en cours…');try{var dataUrl=await fileToDataUrlForAnalysis(file);var r=await fetch('/api/analyse-facture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:file.name,mime:file.type,dataUrl:dataUrl})});var j=await r.json();if(!j.ok)throw new Error(j.error||'Analyse impossible');applyAnalysis(j.data);setStatus('✅ Analyse terminée. Vérifie les champs puis Enregistrer.')}catch(e){console.warn(e);setStatus('⚠️ Analyse impossible : '+(e.message||e)+'. Tu peux remplir à la main.')}finally{$('analyzeBtn').disabled=false;$('analyzeBtn').textContent='✨ Analyser la facture'}}
+$('analyzeBtn').onclick=analyzeInvoice;
+
+async function save(){
+  var row={date_doc:$('date').value||today(),type_doc:$('type').value||'depense',fournisseur:$('fournisseur').value||'À compléter',categorie:$('categorie').value||'general',montant_ttc:amount($('montant').value),paiement:$('paiement').value||'a_classer',notes:$('notes').value||'',fichier_nom:file?file.name:'',statut:'classe',source:file?'mobile_photo':'mobile_manuel',created_at:new Date().toISOString()};
+  if(!row.montant_ttc&&!row.fichier_nom){setStatus('❌ Ajoute au moins un montant ou une photo.');return}
+  setStatus('⏳ Enregistrement en cours…');
+  if(getSb()){
+    try{var f=await upload(row);row.fichier_url=f.url;row.fichier_path=f.path;var r=await getSb().from(TABLE).insert([row]).select('*').single();if(r.error && (String(r.error.message).includes('fichier_url')||String(r.error.message).includes('fichier_path'))){delete row.fichier_url;delete row.fichier_path;r=await getSb().from(TABLE).insert([row]).select('*').single()}if(!r.error){setBadge('✅ Supabase synchronisé','ok');setStatus('✅ Enregistré dans Supabase. Tu peux ouvrir le PC, la ligne apparaîtra.');$('montant').value='';$('notes').value='';$('file').value='';file=null;$('fileName').textContent='';$('preview').style.display='none';return}throw r.error}catch(e){console.warn(e);setBadge('⚠️ Supabase erreur','err');setStatus('⚠️ Supabase bloque. Sauvegarde locale téléphone uniquement. Lance le SQL V44 dans Supabase.')}}
+  row.id='mobile_'+Date.now();row.synced=false;var arr=[];try{arr=JSON.parse(localStorage.getItem(LOCAL_KEY)||'[]')}catch(e){}arr.unshift(row);localStorage.setItem(LOCAL_KEY,JSON.stringify(arr));setStatus('✅ Enregistré local téléphone, mais pas encore visible PC.');
+}
+$('saveBtn').onclick=save;
+(async function(){if(getSb()){try{var r=await getSb().from(TABLE).select('id').limit(1);if(!r.error){setBadge('✅ Supabase connecté','ok');return}setBadge('⚠️ Table à vérifier','err')}catch(e){setBadge('⚠️ Supabase inaccessible','err')}}else setBadge('⚠️ Supabase non chargé','err')})();
+</script>
+</body></html>
