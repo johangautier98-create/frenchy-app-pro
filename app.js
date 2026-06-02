@@ -2987,9 +2987,10 @@ async function handleFactuFile(file,mode){
     var pdfText = '';
 
     if(isPdf){
-      // PDF : extraire le texte avec PDF.js PUIS envoyer à OpenAI comme texte
-      if(statusEl) statusEl.textContent='📄 Lecture du PDF en cours…';
-      if(typeof pdfjsLib !== 'undefined'){
+      // PDF : extraire le texte avec PDF.js et le mettre dans la zone
+      if(statusEl) statusEl.textContent='📄 Lecture du PDF…';
+      try{
+        if(typeof pdfjsLib === 'undefined') throw new Error('PDF.js non chargé');
         pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         var ab2=await file.arrayBuffer();
         var pdf2=await pdfjsLib.getDocument({data:ab2}).promise;
@@ -3000,18 +3001,24 @@ async function handleFactuFile(file,mode){
           pages2.push(ct2.items.map(function(x){return x.str;}).join(' '));
         }
         pdfText = pages2.join('\n').trim();
+      }catch(pdfErr){
+        if(statusEl) statusEl.textContent='⚠️ Erreur lecture PDF : '+pdfErr.message;
+        return;
       }
-      if(!pdfText){ if(statusEl) statusEl.textContent='⚠️ Impossible de lire le PDF'; return; }
-      // Mettre le texte dans la zone de texte
+      if(!pdfText){
+        if(statusEl) statusEl.textContent='⚠️ PDF vide ou non lisible — essayez avec une image photo';
+        return;
+      }
+      // Mettre le texte dans la zone puis analyser automatiquement
       var taPdf=document.getElementById((mode==='mag'?'mag':'cab')+'-import-text');
       if(taPdf) taPdf.value=pdfText;
-      if(statusEl) statusEl.textContent='🤖 OpenAI analyse le PDF…';
-      // Appeler directement factuAnalyzeIA qui lira le textarea
-      await factuAnalyzeIA(mode);
-      return; // Sortir - pas besoin de continuer
+      if(statusEl){statusEl.style.display='block';statusEl.textContent='✅ PDF lu ('+pdf2.numPages+' page(s)) — analyse OpenAI en cours…';}
+      // Appeler l'analyse OpenAI avec le texte extrait
+      try{ await window.factuAnalyzeIA(mode); }catch(iaErr){ console.warn('IA error:',iaErr); }
+      return;
     }
 
-    // Images seulement : envoyer en base64 (OpenAI vision)
+    // Images : envoyer en base64 (OpenAI vision)
     dataUrl = await toDataUrl(file);
     if(statusEl) statusEl.textContent='🤖 OpenAI analyse l\'image…';
 
