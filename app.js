@@ -4069,15 +4069,33 @@ window.catSaveProduit = async function(){
     RAW.unshift([ref,nom,famille,couleur,taille,grammage,cond,ht,pvc,ean,ronde]);
     CATALOGUE.unshift({ref:ref,produit:nom,famille:famille,couleur:couleur,taille:taille,
       grammage:grammage,cond:cond,ht:ht,pvc:pvc,ean:ean,ronde:!!ronde,format:'40x30'});
+    /* Vider les filtres pour que le nouveau produit soit visible */
+    var catSearch=document.getElementById('cat-search');
+    var catFamille=document.getElementById('cat-famille');
+    if(catSearch) catSearch.value='';
+    if(catFamille) catFamille.value='';
     buildFilters();
     renderCatalogue();
-    st.textContent='✅ Produit ajouté au catalogue !';st.style.color='#2e7d32';
+    st.textContent='✅ Produit "'+nom+'" ajouté ! Visible en haut du catalogue.';st.style.color='#2e7d32';
     /* Vider le formulaire */
     ['catAddRef','catAddFamille','catAddNom','catAddCouleur','catAddTaille','catAddGrammage',
      'catAddCond','catAddHt','catAddPvc','catAddEan','catAddNotes'].forEach(function(id){
       var e=document.getElementById(id);if(e)e.value='';
     });
-    setTimeout(function(){window.catHideAddProduit();},1500);
+    setTimeout(function(){
+      window.catHideAddProduit();
+      /* Scroller en haut du catalogue pour voir le nouveau produit */
+      var catPage=document.getElementById('page-catalogue');
+      if(catPage) catPage.scrollTop=0;
+      window.scrollTo({top:0,behavior:'smooth'});
+      /* Mettre en évidence le premier cat-card */
+      var firstCard=document.querySelector('.cat-card');
+      if(firstCard){
+        firstCard.style.outline='3px solid #00a651';
+        firstCard.style.transition='outline .5s';
+        setTimeout(function(){firstCard.style.outline='';},3000);
+      }
+    },800);
   }catch(e){st.textContent='❌ '+e.message;st.style.color='#c62828';}
 };
 
