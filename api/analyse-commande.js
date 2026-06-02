@@ -16,55 +16,10 @@ module.exports = async function handler(req, res) {
     const body = req.body || {};
     const { filename = '', mime = '', dataUrl = '', texte = '', mode = 'cab' } = body;
 
-    const prompt = `Tu es un assistant pour Frenchy Leurres, fabricant de leurres de pêche artisanaux (leurres souples, shads, têtes plombées).
-
-Analyse ce document et extrais TOUTES les lignes produits. C'est TRÈS IMPORTANT : même s'il y a peu de lignes, extrais-les toutes.
-
-Le document peut être :
-
-1. UNE FACTURE ou BON DE LIVRAISON FRENCHY LEURRES (format tableau) :
-   Colonnes possibles : Réf, Désignation/Nom, Coloris, Taille, Grammage, Qté, PU HT, Total HT
-   Exemple : "FL-2026-001  Ravager Shad  Rose  T1  35g  10  17,90  179,00"
-   → extraire : ref=FL-xxx, nom=Ravager Shad, couleur=Rose, taille=T1, grammage=35g, quantite=10, prix_unitaire=17.90
-
-2. UN BON DE COMMANDE CABESTO (PDF avec références PE-XXXXXXX) :
-   Quantité réelle : "10,00 pce" = quantite 10
-   Références Frenchy entre crochets : [MOULEDEMARS], [PB80g]
-   Référence commande format : COMF/2026/XXX/XXXXX
-
-3. UN EMAIL OU SMS D'UN MAGASIN :
-   Liste libre de produits avec quantités
-
-4. UNE COMMANDE MANUSCRITE OU PHOTO
-
-RÈGLE ABSOLUE : si tu vois des produits dans le document, il FAUT les mettre dans "lignes". Ne jamais retourner un tableau vide si des produits sont visibles.
-
-Retourne UNIQUEMENT ce JSON valide, sans texte avant ni après :
-{
-  "ref_commande": "",
-  "date_commande": "",
-  "magasin": "",
-  "type_client": "magasin",
-  "numero_facture": "",
-  "lignes": [
-    {
-      "ref_frenchy": "",
-      "ref_client": "",
-      "designation": "",
-      "couleur": "",
-      "taille": "",
-      "grammage": "",
-      "quantite": 1,
-      "prix_unitaire": 0
-    }
-  ],
-  "frais_port": 0,
-  "total_ht": 0,
-  "texte_brut": "",
-  "confidence": 0.9
-}
-
-Si vraiment aucun produit n'est identifiable, mets le texte intégral visible dans "texte_brut".`;
+    const prompt = `Extrais TOUTES les lignes produits de ce document (facture, bon de commande, email, SMS, photo).
+Retourne UNIQUEMENT ce JSON valide :
+{"ref_commande":"","date_commande":"","magasin":"","numero_facture":"","lignes":[{"ref_frenchy":"","designation":"","couleur":"","taille":"","grammage":"","quantite":1,"prix_unitaire":0}],"frais_port":0,"total_ht":0}
+Extrais TOUTES les lignes sans exception. Pour chaque ligne produit visible, crée une entrée dans "lignes".`;
 
     let messages;
     const isPdf = /application\/pdf/i.test(mime) || /\.pdf$/i.test(filename);
@@ -100,6 +55,8 @@ Si vraiment aucun produit n'est identifiable, mets le texte intégral visible da
     }
 
     const model = isImage ? 'gpt-4o' : 'gpt-4o-mini';
+    // 4000 tokens = suffisant pour 30+ lignes de produits
+    const maxTok = isImage ? 2000 : 4000;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -111,7 +68,7 @@ Si vraiment aucun produit n'est identifiable, mets le texte intégral visible da
         model: model,
         messages: messages,
         temperature: 0,
-        max_tokens: 1500,
+        max_tokens: maxTok,
         response_format: { type: 'json_object' }
       })
     });
@@ -143,8 +100,11 @@ Si vraiment aucun produit n'est identifiable, mets le texte intégral visible da
         ref_frenchy: String(l.ref_frenchy || l.ref || '').trim(),
         ref_client: String(l.ref_client || l.ref_cabesto || '').trim(),
         designation: String(l.designation || l.nom || '').trim(),
+        couleur: String(l.couleur || l.color || '').trim(),
+        taille: String(l.taille || l.size || '').trim(),
+        grammage: String(l.grammage || l.poids || '').trim(),
         quantite: Math.max(1, parseInt(l.quantite) || 1),
-        prix_unitaire: parseFloat(l.prix_unitaire || l.prix || 0) || 0
+        prix_unitaire: parseFloat(String(l.prix_unitaire || l.prix || 0).replace(',', '.')) || 0
       };
     }).filter(function(l) {
       return l.designation || l.ref_frenchy;
