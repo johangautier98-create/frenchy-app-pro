@@ -3071,9 +3071,32 @@ async function handleFactuFile(file,mode){
       return;
     }
 
-    // Images : envoyer en base64 (OpenAI vision)
-    dataUrl = await toDataUrl(file);
-    if(statusEl) statusEl.textContent='🤖 OpenAI analyse l\'image…';
+    // Images : compresser puis envoyer à OpenAI Vision
+    if(statusEl) statusEl.textContent='🖼️ Compression de l\'image…';
+    dataUrl = await (async function compressImage(f){
+      return new Promise(function(resolve){
+        var img=new Image();
+        var url=URL.createObjectURL(f);
+        img.onload=function(){
+          URL.revokeObjectURL(url);
+          var MAX=1600; // px max — suffisant pour lire un tableau
+          var w=img.width,h=img.height;
+          if(w>MAX||h>MAX){var r=Math.min(MAX/w,MAX/h);w=Math.round(w*r);h=Math.round(h*r);}
+          var cv=document.createElement('canvas');
+          cv.width=w;cv.height=h;
+          cv.getContext('2d').drawImage(img,0,0,w,h);
+          resolve(cv.toDataURL('image/jpeg',0.85)); // JPEG 85% < 1Mo
+        };
+        img.onerror=function(){
+          // Fallback sans compression
+          var fr=new FileReader();
+          fr.onload=function(){resolve(fr.result);};
+          fr.readAsDataURL(f);
+        };
+        img.src=url;
+      });
+    })(file);
+    if(statusEl) statusEl.textContent='🤖 OpenAI Vision analyse l\'image…';
 
     var resp = await fetch('/api/analyse-commande', {
       method: 'POST',
