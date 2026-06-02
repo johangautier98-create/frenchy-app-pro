@@ -36,7 +36,7 @@
 </style>
 </head>
 <body>
-<div id="fl-lock-screen" class="fl-lock-screen">
+<div id="fl-lock-screen" class="fl-lock-screen fl-unlocked" style="display:none!important">
   <div class="fl-lock-card">
     <div class="fl-lock-logo-wrap">
       <img src="logo-app.png" alt="Gautier Fishing Application" class="fl-lock-logo-img">
@@ -79,18 +79,10 @@
     if(screen){ screen.classList.remove('fl-unlocked'); screen.style.display='flex'; }
   };
   document.addEventListener('DOMContentLoaded', function(){
-    const input = document.getElementById('flLockPass');
+    /* Mot de passe désactivé — accès direct */
     const screen = document.getElementById('fl-lock-screen');
-    let already = false;
-    try{ already = sessionStorage.getItem('frenchy_app_unlocked_v34') === '1'; }catch(e){}
-    if(already && screen){ screen.classList.add('fl-unlocked'); screen.style.display='none'; }
-    if(input){
-      input.placeholder = 'Mot de passe';
-      input.addEventListener('keydown', function(e){
-        if(e.key === 'Enter'){ e.preventDefault(); window.flUnlockApp(); }
-      });
-      setTimeout(()=>input.focus(), 200);
-    }
+    try{ sessionStorage.setItem('frenchy_app_unlocked_v34','1'); }catch(e){}
+    if(screen){ screen.classList.add('fl-unlocked'); screen.style.display='none'; }
   });
 })();
 </script>
@@ -553,6 +545,7 @@ Rouget 9cm 14g x8"></textarea>
 <div style="display:flex;background:#1a1a1a;border-radius:10px;overflow:hidden;margin-bottom:14px;">
   <button id="sub-tab-magasin" class="sub-tab-btn" style="background:#e8c840;color:#1a1a1a;" onclick="showFactuTab('magasin')">🏪 Facturation Magasin</button>
   <button id="sub-tab-cabesto" class="sub-tab-btn" style="background:#1a1a1a;color:#666;" onclick="showFactuTab('cabesto')">🔗 Facturation Cabesto</button>
+  <button id="sub-tab-historique" class="sub-tab-btn" style="background:#1a1a1a;color:#666;" onclick="showFactuTab('historique')">📂 Factures enregistrées</button>
 </div>
 <div id="drafts-panel" style="display:none;margin-bottom:12px;"></div>
 
@@ -609,6 +602,17 @@ Rouget 9cm 14g x8"></textarea>
       <div><label class="lbl">Réf. commande client</label><input type="text" id="mag-order-ref" placeholder="BC-2026-001"/></div>
       <div><label class="lbl">Frais de port HT (€)</label>
         <input type="number" id="mag-port" value="0" min="0" step="0.01" oninput="factuRenderTotals('mag')"/></div>
+      <div><label class="lbl">Remise (%)</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="number" id="mag-remise" value="0" min="0" max="100" step="0.5" style="flex:1;" oninput="factuRenderTotals('mag')"/>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;">
+            <button onclick="document.getElementById('mag-remise').value=5;factuRenderTotals('mag')" style="padding:4px 8px;background:#1a1a1a;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700;">5%</button>
+            <button onclick="document.getElementById('mag-remise').value=10;factuRenderTotals('mag')" style="padding:4px 8px;background:#1a1a1a;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700;">10%</button>
+            <button onclick="document.getElementById('mag-remise').value=15;factuRenderTotals('mag')" style="padding:4px 8px;background:#1a1a1a;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700;">15%</button>
+            <button onclick="document.getElementById('mag-remise').value=20;factuRenderTotals('mag')" style="padding:4px 8px;background:#1a1a1a;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700;">20%</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
       <button class="btn btn-success" onclick="magPrint('invoice')">🧾 Imprimer facture</button>
@@ -681,7 +685,17 @@ Rouget 9cm 14g x8"></textarea>
         <input type="text" id="cab-supplier-code" value="FE00513" style="font-weight:700;background:#f8f8f4;"/></div>
     </div>
     <div class="grid2" style="margin-top:10px;">
-      <div></div>
+      <div><label class="lbl">Remise (%)</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="number" id="cab-remise" value="0" min="0" max="100" step="0.5" style="flex:1;" oninput="factuRenderTotals('cab')"/>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;">
+            <button onclick="document.getElementById('cab-remise').value=5;factuRenderTotals('cab')" style="padding:4px 8px;background:#c62828;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700;">5%</button>
+            <button onclick="document.getElementById('cab-remise').value=10;factuRenderTotals('cab')" style="padding:4px 8px;background:#c62828;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700;">10%</button>
+            <button onclick="document.getElementById('cab-remise').value=15;factuRenderTotals('cab')" style="padding:4px 8px;background:#c62828;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700;">15%</button>
+            <button onclick="document.getElementById('cab-remise').value=20;factuRenderTotals('cab')" style="padding:4px 8px;background:#c62828;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700;">20%</button>
+          </div>
+        </div>
+      </div>
       <div><label class="lbl">Frais de port HT (€)</label>
         <input type="number" id="cab-port" value="0" min="0" step="0.01" oninput="factuRenderTotals('cab')"/></div>
     </div>
@@ -705,6 +719,81 @@ Rouget 9cm 14g x8"></textarea>
     <div id="cab-lines"><div class="factu-empty">Importez ou collez le bon de commande Cabesto ci-dessus.</div></div>
     <div id="cab-total" style="display:none;margin-top:8px;"></div>
   </div>
+</div>
+
+<!-- ══ HISTORIQUE FACTURES ══ -->
+<div id="factu-tab-historique" style="display:none;">
+  <!-- KPI -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
+    <div class="card" style="padding:12px;text-align:center;">
+      <div style="font-size:22px;font-weight:900;color:var(--accent)" id="histoKpiTotal">0</div>
+      <div style="font-size:11px;color:var(--muted)">Documents</div>
+    </div>
+    <div class="card" style="padding:12px;text-align:center;">
+      <div style="font-size:16px;font-weight:900;color:#2e7d32" id="histoKpiPaye">0 €</div>
+      <div style="font-size:11px;color:var(--muted)">✅ Payé</div>
+    </div>
+    <div class="card" style="padding:12px;text-align:center;">
+      <div style="font-size:16px;font-weight:900;color:#e65100" id="histoKpiAttente">0 €</div>
+      <div style="font-size:11px;color:var(--muted)">⏳ En attente</div>
+    </div>
+    <div class="card" style="padding:12px;text-align:center;">
+      <div style="font-size:16px;font-weight:900;color:#c62828" id="histoKpiRetard">0 €</div>
+      <div style="font-size:11px;color:var(--muted)">🔴 En retard</div>
+    </div>
+  </div>
+
+  <!-- FILTRES -->
+  <div class="card" style="padding:12px;margin-bottom:10px;">
+    <div class="grid3" style="gap:10px;align-items:end;">
+      <div>
+        <label class="lbl">Recherche</label>
+        <input type="text" id="histoSearch" placeholder="N° facture, client, réf..." oninput="renderHistorique()" style="width:100%"/>
+      </div>
+      <div>
+        <label class="lbl">Type de document</label>
+        <select id="histoFilterType" onchange="renderHistorique()" style="width:100%">
+          <option value="">— Tous —</option>
+          <option value="facture">🧾 Facture</option>
+          <option value="bon_livraison">📦 Bon de livraison</option>
+        </select>
+      </div>
+      <div>
+        <label class="lbl">Statut paiement</label>
+        <select id="histoFilterStatut" onchange="renderHistorique()" style="width:100%">
+          <option value="">— Tous —</option>
+          <option value="paye">✅ Payé</option>
+          <option value="en_attente">⏳ En attente</option>
+          <option value="retard">🔴 En retard</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid2" style="gap:10px;margin-top:10px;align-items:end;">
+      <div>
+        <label class="lbl">Type client</label>
+        <select id="histoFilterClient" onchange="renderHistorique()" style="width:100%">
+          <option value="">— Tous —</option>
+          <option value="magasin">🏪 Magasin</option>
+          <option value="cabesto">🔗 Cabesto</option>
+        </select>
+      </div>
+      <div>
+        <label class="lbl">Période</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="month" id="histoFilterMonth" onchange="renderHistorique()" style="flex:1"/>
+          <button onclick="document.getElementById('histoFilterMonth').value='';document.getElementById('histoSearch').value='';document.getElementById('histoFilterType').value='';document.getElementById('histoFilterStatut').value='';document.getElementById('histoFilterClient').value='';renderHistorique()" style="padding:8px 12px;background:#444;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">🗑 Réinitialiser</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LISTE -->
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div id="histoList" style="min-height:60px;"></div>
+  </div>
+
+  <!-- BOUTON RAFRAÎCHIR -->
+  <button onclick="loadHistorique()" style="margin-top:10px;width:100%;padding:10px;background:#1a1a1a;color:#aaa;border:1px solid #333;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;">🔄 Rafraîchir depuis le serveur</button>
 </div>
 
 </section>
