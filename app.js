@@ -3125,19 +3125,50 @@ window.factuAnalyzeIA = async function(mode){
       if(data.magasin && mode==='cab') autoFillCabestoFields({name:data.magasin});
 
       // Construire le texte structuré pour factuAnalyze
+      // Remplir le numéro de facture si trouvé
+      if(data.numero_facture){
+        var numEl = document.getElementById(mode==='cab'?'cab-inv-num':'mag-inv-num');
+        if(numEl && !numEl.value) numEl.value = data.numero_facture;
+      }
+      // Remplir les frais de port si trouvés
+      if(data.frais_port){
+        var portEl = document.getElementById(mode==='cab'?'cab-port':'mag-port');
+        if(portEl && !parseFloat(portEl.value)) portEl.value = data.frais_port;
+      }
+
       var lignes = data.lignes || [];
       if(lignes.length > 0){
-        var textLines = lignes.map(function(l){
-          var ref = l.ref_frenchy || l.designation || '';
-          var qty = l.quantite || 1;
-          // Format PE si disponible
-          if(l.ref_client && l.ref_client.match(/PE-/i)) return l.ref_client+' '+ref+' x'+qty;
-          return ref+' x'+qty;
-        }).join('\\n');
-        var ta = document.getElementById((mode==='mag'?'mag':'cab')+'-import-text');
-        if(ta) ta.value = textLines;
-        if(statusEl) statusEl.textContent='✅ OpenAI : '+lignes.length+' produit(s) — intégration…';
-        setTimeout(function(){ factuAnalyze(mode); }, 300);
+        // Injection directe des lignes sans passer par factuAnalyze
+        if(mode==='mag'){
+          magLines = lignes.map(function(l){
+            return {
+              ref: l.ref_frenchy||l.ref_client||'',
+              nom: l.designation||l.ref_frenchy||'',
+              couleur: l.couleur||'',
+              taille: l.taille||'',
+              grammage: l.grammage||'',
+              qty: Number(l.quantite)||1,
+              pu: Number(l.prix_unitaire)||0,
+              pe:'', desCab:'', puCab:0
+            };
+          });
+          if(typeof renderMagLines==='function') renderMagLines();
+        } else {
+          cabLines = lignes.map(function(l){
+            return {
+              pe: l.ref_client||l.ref_frenchy||'',
+              desCab: l.designation||'',
+              ref: l.ref_frenchy||'',
+              nom: l.designation||'',
+              couleur:'', taille:'', grammage:'',
+              qty: Number(l.quantite)||1,
+              pu:0, puCab: Number(l.prix_unitaire)||0
+            };
+          });
+          if(typeof renderCabLines==='function') renderCabLines();
+        }
+        if(statusEl) statusEl.textContent='✅ OpenAI : '+lignes.length+' produit(s) importé(s) avec succès !';
+        factuRenderTotals(mode);
       } else if(data.texte_brut){
         // Pas de lignes structurées — utiliser le texte brut reformatté
         var ta2 = document.getElementById((mode==='mag'?'mag':'cab')+'-import-text');

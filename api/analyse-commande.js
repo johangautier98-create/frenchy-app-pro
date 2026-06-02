@@ -16,42 +16,55 @@ module.exports = async function handler(req, res) {
     const body = req.body || {};
     const { filename = '', mime = '', dataUrl = '', texte = '', mode = 'cab' } = body;
 
-    const prompt = `Tu es un assistant pour Frenchy Leurres, fabricant de leurres de pêche artisanaux.
+    const prompt = `Tu es un assistant pour Frenchy Leurres, fabricant de leurres de pêche artisanaux (leurres souples, shads, têtes plombées).
 
-Analyse ce document (bon de commande, email, SMS, photo, PDF) et extrais les informations de commande.
+Analyse ce document et extrais TOUTES les lignes produits. C'est TRÈS IMPORTANT : même s'il y a peu de lignes, extrais-les toutes.
 
 Le document peut être :
-- Un bon de commande PDF Cabesto avec des références [PE-XXXXXXX] et [REFFRENCH]
-- Un email ou SMS d'un magasin avec une liste de produits
-- Une photo d'un bon de commande manuscrit ou imprimé
-- Un texte libre avec des produits et quantités
 
-IMPORTANT pour les bons de commande Cabesto :
-- La quantité réelle est souvent "10,00 pce" = quantité 10 (pas 1)
-- Les références Frenchy sont entre crochets : [MOULEDEMARS], [PB80g], etc.
-- La référence commande est au format COMF/2026/XXX/XXXXX
+1. UNE FACTURE ou BON DE LIVRAISON FRENCHY LEURRES (format tableau) :
+   Colonnes possibles : Réf, Désignation/Nom, Coloris, Taille, Grammage, Qté, PU HT, Total HT
+   Exemple : "FL-2026-001  Ravager Shad  Rose  T1  35g  10  17,90  179,00"
+   → extraire : ref=FL-xxx, nom=Ravager Shad, couleur=Rose, taille=T1, grammage=35g, quantite=10, prix_unitaire=17.90
+
+2. UN BON DE COMMANDE CABESTO (PDF avec références PE-XXXXXXX) :
+   Quantité réelle : "10,00 pce" = quantite 10
+   Références Frenchy entre crochets : [MOULEDEMARS], [PB80g]
+   Référence commande format : COMF/2026/XXX/XXXXX
+
+3. UN EMAIL OU SMS D'UN MAGASIN :
+   Liste libre de produits avec quantités
+
+4. UNE COMMANDE MANUSCRITE OU PHOTO
+
+RÈGLE ABSOLUE : si tu vois des produits dans le document, il FAUT les mettre dans "lignes". Ne jamais retourner un tableau vide si des produits sont visibles.
 
 Retourne UNIQUEMENT ce JSON valide, sans texte avant ni après :
 {
   "ref_commande": "",
   "date_commande": "",
   "magasin": "",
-  "type_client": "cabesto",
+  "type_client": "magasin",
+  "numero_facture": "",
   "lignes": [
     {
       "ref_frenchy": "",
       "ref_client": "",
       "designation": "",
+      "couleur": "",
+      "taille": "",
+      "grammage": "",
       "quantite": 1,
       "prix_unitaire": 0
     }
   ],
+  "frais_port": 0,
   "total_ht": 0,
   "texte_brut": "",
   "confidence": 0.9
 }
 
-Si tu ne trouves pas de lignes produits structurées, mets le texte brut dans "texte_brut" pour traitement ultérieur.`;
+Si vraiment aucun produit n'est identifiable, mets le texte intégral visible dans "texte_brut".`;
 
     let messages;
     const isPdf = /application\/pdf/i.test(mime) || /\.pdf$/i.test(filename);
