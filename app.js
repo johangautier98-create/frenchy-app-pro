@@ -2987,38 +2987,42 @@ async function handleFactuFile(file,mode){
     var pdfText = '';
 
     if(isPdf){
-      // Pour les PDFs : extraire le texte avec PDF.js puis envoyer à OpenAI comme texte
-      if(statusEl) statusEl.textContent='📄 Extraction du texte PDF…';
+      // PDF : extraire le texte avec PDF.js PUIS envoyer à OpenAI comme texte
+      if(statusEl) statusEl.textContent='📄 Lecture du PDF en cours…';
       if(typeof pdfjsLib !== 'undefined'){
         pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        var ab=await file.arrayBuffer();
-        var pdf=await pdfjsLib.getDocument({data:ab}).promise;
-        var pages=[];
-        for(var pi=1;pi<=pdf.numPages;pi++){
-          var page=await pdf.getPage(pi);
-          var ct=await page.getTextContent();
-          pages.push(ct.items.map(function(x){return x.str;}).join(' '));
+        var ab2=await file.arrayBuffer();
+        var pdf2=await pdfjsLib.getDocument({data:ab2}).promise;
+        var pages2=[];
+        for(var pi=1;pi<=pdf2.numPages;pi++){
+          var page2=await pdf2.getPage(pi);
+          var ct2=await page2.getTextContent();
+          pages2.push(ct2.items.map(function(x){return x.str;}).join(' '));
         }
-        pdfText = pages.join('\n').trim();
-        // Mettre le texte extrait dans la zone
-        var taPdf=document.getElementById((mode==='mag'?'mag':'cab')+'-import-text');
-        if(taPdf) taPdf.value=pdfText;
+        pdfText = pages2.join('\n').trim();
       }
-    } else {
-      // Images : envoyer en base64 (OpenAI vision)
-      dataUrl = await toDataUrl(file);
+      if(!pdfText){ if(statusEl) statusEl.textContent='⚠️ Impossible de lire le PDF'; return; }
+      // Mettre le texte dans la zone de texte
+      var taPdf=document.getElementById((mode==='mag'?'mag':'cab')+'-import-text');
+      if(taPdf) taPdf.value=pdfText;
+      if(statusEl) statusEl.textContent='🤖 OpenAI analyse le PDF…';
+      // Appeler directement factuAnalyzeIA qui lira le textarea
+      await factuAnalyzeIA(mode);
+      return; // Sortir - pas besoin de continuer
     }
 
-    if(statusEl) statusEl.textContent='🤖 OpenAI analyse le document…';
+    // Images seulement : envoyer en base64 (OpenAI vision)
+    dataUrl = await toDataUrl(file);
+    if(statusEl) statusEl.textContent='🤖 OpenAI analyse l\'image…';
 
     var resp = await fetch('/api/analyse-commande', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         filename: file.name,
-        mime: isPdf ? 'text/plain' : file.type,
+        mime: file.type,
         dataUrl: dataUrl,
-        texte: pdfText,
+        texte: '',
         mode: mode
       })
     });
