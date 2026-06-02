@@ -1,0 +1,4 @@
+.vercel
+.github-config.json
+backend/.env
+*.env
