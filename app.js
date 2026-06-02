@@ -2527,7 +2527,50 @@ function showFactuTab(name){
   if(bc){bc.style.background=name==='cabesto'?'#c62828':'#1a1a1a';bc.style.color=name==='cabesto'?'#fff':'#666';}
   if(bh){bh.style.background=name==='historique'?'#1565c0':'#1a1a1a';bh.style.color=name==='historique'?'#fff':'#666';}
   if(name==='historique')renderHistorique();
+  // Remplir automatiquement les numéros de facture et la date
+  if(name==='magasin'){
+    var d=document.getElementById('mag-inv-date');if(d&&!d.value)d.value=todayISO();
+    autoFillInvNum('mag');
+  }
+  if(name==='cabesto'){
+    var dc=document.getElementById('cab-inv-date');if(dc&&!dc.value)dc.value=todayISO();
+    autoFillInvNum('cab');
+  }
 }
+
+// ── NUMÉROTATION AUTOMATIQUE DES FACTURES ──────────────────────────────────
+window.autoFillInvNum = async function(mode){
+  var el = document.getElementById(mode+'-inv-num');
+  if(!el || el.value) return; // déjà rempli
+
+  var year = new Date().getFullYear();
+  var prefix = 'FL-'+year+'-';
+  var prefix_cab = 'CAB-'+year+'-';
+
+  try{
+    var db = window.db;
+    if(!db){ el.value = prefix+'001'; return; }
+
+    // Récupérer tous les numéros existants pour cette année
+    var r = await db.from('factures')
+      .select('numero')
+      .ilike('numero', (mode==='cab' ? prefix_cab : prefix)+'%')
+      .order('numero', {ascending:false})
+      .limit(100);
+
+    var nums = (r.data||[]).map(function(f){
+      var n = parseInt((f.numero||'').split('-').pop()) || 0;
+      return n;
+    }).filter(Boolean);
+
+    var next = nums.length > 0 ? (Math.max.apply(null, nums) + 1) : 1;
+    var nextStr = String(next).padStart(3,'0');
+    el.value = (mode==='cab' ? prefix_cab : prefix) + nextStr;
+  }catch(e){
+    el.value = prefix + '001';
+  }
+};
+window.autoFillInvNum = window.autoFillInvNum; // expose
 // HISTORIQUE
 var _histoData=[];
 async function loadHistorique(){var db=window.db;if(!db)return;try{var r=await db.from('factures').select('*').order('date_facture',{ascending:false}).limit(500);if(!r.error){_histoData=r.data||[];renderHistorique();}}catch(e){console.warn(e);}}
