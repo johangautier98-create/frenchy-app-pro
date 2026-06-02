@@ -1404,30 +1404,33 @@ async function processFile(file){
       const rows=await readPdfInvoiceSmart(file);
       if(rows.length>0){ showStructuredRows(rows,'PDF analysé automatiquement'); return; }
 
-      // Essai 2 : PDF sans texte (généré HTML/impression) → canvas + OpenAI Vision
-      status.textContent='🖼️ PDF image — conversion pour OpenAI Vision…';
+      // Essai 2 : PDF sans texte → OCR Tesseract.js
+      status.textContent='🔎 PDF image — OCR en cours (30 sec)…';
       pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       const ab=await file.arrayBuffer();
       const pdf=await pdfjsLib.getDocument({data:ab}).promise;
       const page=await pdf.getPage(1);
-      const viewport=page.getViewport({scale:2.0});
+      const viewport=page.getViewport({scale:2.5});
       const canvas=document.createElement('canvas');
       canvas.width=viewport.width; canvas.height=viewport.height;
       await page.render({canvasContext:canvas.getContext('2d'),viewport:viewport}).promise;
-      const imgDataUrl=canvas.toDataURL('image/jpeg',0.92);
 
-      status.textContent='🤖 OpenAI Vision lit le PDF…';
-      const resp=await fetch('/api/analyse-commande',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({filename:file.name,mime:'image/jpeg',dataUrl:imgDataUrl,texte:'',mode:'mag'})
-      });
-      const j=await resp.json().catch(function(){return{ok:false};});
-      if(j.ok && j.data && j.data.lignes && j.data.lignes.length>0){
-        const visionRows=j.data.lignes.map(function(l){return{designation:l.designation||l.ref_frenchy||'',qty:Number(l.quantite)||1,pu:Number(l.prix_unitaire)||0};});
-        showStructuredRows(visionRows,'OpenAI Vision : '+visionRows.length+' produit(s)');
-      } else {
-        status.textContent='⚠️ Aucun produit trouvé. Copiez-collez le tableau dans la zone texte.';
+      if(typeof Tesseract !== 'undefined'){
+        const result=await Tesseract.recognize(canvas,'fra',{logger:m=>{
+          if(m.status==='recognizing text') status.textContent='🔎 OCR '+Math.round((m.progress||0)*100)+'%…';
+        }});
+        const ocrText=(result.data&&result.data.text)||'';
+        if(ocrText.length>30){
+          const ocrRows=extractInvoiceRowsFromText(ocrText);
+          if(ocrRows.length>0){ showStructuredRows(ocrRows,'OCR : '+ocrRows.length+' produit(s)'); return; }
+          // Mettre le texte dans la zone pour analyse manuelle
+          const ta=document.getElementById('order-text');
+          if(ta) ta.value=ocrText;
+          status.textContent='✅ OCR terminé — vérifiez le texte puis cliquez Analyser.';
+          return;
+        }
       }
+      status.textContent='⚠️ Impossible de lire le PDF. Copiez-collez le texte dans la zone.';
     }catch(err){ status.textContent='⚠️ Erreur PDF : '+err.message; }
     return;
   }
@@ -3019,7 +3022,7 @@ async function handleFactuFile(file,mode){
         var ab2=await file.arrayBuffer();
         var pdf2=await pdfjsLib.getDocument({data:ab2}).promise;
 
-        // Essai 1 : extraction texte
+        // Essai 1 : extraction texte directe
         var pages2=[];
         for(var pi=1;pi<=pdf2.numPages;pi++){
           var page2=await pdf2.getPage(pi);
@@ -3029,7 +3032,6 @@ async function handleFactuFile(file,mode){
         pdfText = pages2.join('\n').trim();
 
         if(pdfText && pdfText.length > 50){
-          // Texte extrait → analyser avec OpenAI texte
           var taPdf=document.getElementById((mode==='mag'?'mag':'cab')+'-import-text');
           if(taPdf) taPdf.value=pdfText;
           if(statusEl) statusEl.textContent='🤖 PDF lu — OpenAI analyse…';
@@ -3037,43 +3039,31 @@ async function handleFactuFile(file,mode){
           return;
         }
 
-        // Essai 2 : PDF sans texte (généré depuis HTML) → rendu image + OpenAI Vision
-        if(statusEl) statusEl.textContent='🖼️ PDF image détecté — conversion en cours…';
+        // Essai 2 : PDF sans texte → OCR avec Tesseract.js (déjà chargé)
+        if(statusEl) statusEl.textContent='🔎 PDF image — OCR en cours (30 sec)…';
         var page1=await pdf2.getPage(1);
-        var viewport=page1.getViewport({scale:2.0});
+        var viewport=page1.getViewport({scale:2.5}); // haute résolution pour l'OCR
         var canvas=document.createElement('canvas');
         canvas.width=viewport.width; canvas.height=viewport.height;
         var ctx=canvas.getContext('2d');
         await page1.render({canvasContext:ctx,viewport:viewport}).promise;
-        dataUrl=canvas.toDataURL('image/jpeg',0.92);
-        if(statusEl) statusEl.textContent='🤖 Image prête — OpenAI Vision analyse…';
 
-        // Envoyer comme image à OpenAI Vision
-        var resp2=await fetch('/api/analyse-commande',{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({filename:file.name,mime:'image/jpeg',dataUrl:dataUrl,texte:'',mode:mode})
-        });
-        var j2=await resp2.json().catch(function(){return{ok:false,error:'Réponse invalide'};});
-        if(j2.ok&&j2.data){
-          var lignes2=j2.data.lignes||[];
-          if(j2.data.numero_facture){var ne=document.getElementById(mode==='cab'?'cab-inv-num':'mag-inv-num');if(ne&&!ne.value)ne.value=j2.data.numero_facture;}
-          if(j2.data.ref_commande){var re=document.getElementById(mode==='cab'?'cab-order-ref':'mag-order-ref');if(re&&!re.value)re.value=j2.data.ref_commande;}
-          if(lignes2.length>0){
-            if(mode==='mag'){
-              magLines=lignes2.map(function(l){return{ref:l.ref_frenchy||'',nom:l.designation||'',couleur:l.couleur||'',taille:l.taille||'',grammage:l.grammage||'',qty:Number(l.quantite)||1,pu:Number(l.prix_unitaire)||0,pe:'',desCab:'',puCab:0};});
-              if(typeof renderMagLines==='function')renderMagLines();
-            }else{
-              cabLines=lignes2.map(function(l){return{pe:l.ref_frenchy||'',desCab:l.designation||'',ref:l.ref_frenchy||'',nom:l.designation||'',couleur:'',taille:'',grammage:'',qty:Number(l.quantite)||1,pu:0,puCab:Number(l.prix_unitaire)||0};});
-              if(typeof renderCabLines==='function')renderCabLines();
-            }
-            if(statusEl)statusEl.textContent='✅ '+lignes2.length+' produit(s) importés depuis le PDF !';
-            factuRenderTotals(mode);
-          }else{
-            if(statusEl)statusEl.textContent='⚠️ OpenAI n\'a pas trouvé de produits dans le PDF';
+        if(typeof Tesseract !== 'undefined'){
+          var result=await Tesseract.recognize(canvas,'fra',{logger:function(m){
+            if(m.status==='recognizing text' && statusEl)
+              statusEl.textContent='🔎 OCR '+Math.round((m.progress||0)*100)+'%…';
+          }});
+          var ocrText=(result.data&&result.data.text)||'';
+          if(ocrText.length>30){
+            var taPdf2=document.getElementById((mode==='mag'?'mag':'cab')+'-import-text');
+            if(taPdf2) taPdf2.value=ocrText;
+            if(statusEl) statusEl.textContent='🤖 OCR terminé — OpenAI analyse le texte…';
+            try{ await window.factuAnalyzeIA(mode); }catch(e3){ console.warn(e3); }
+            return;
           }
-        }else{
-          if(statusEl)statusEl.textContent='⚠️ '+(j2.error||'Analyse impossible');
         }
+
+        if(statusEl) statusEl.textContent='⚠️ Impossible de lire le PDF. Copiez-collez le texte dans la zone ci-dessous.';
       }catch(pdfErr){
         if(statusEl)statusEl.textContent='⚠️ Erreur PDF : '+pdfErr.message;
         console.error('PDF error:',pdfErr);
