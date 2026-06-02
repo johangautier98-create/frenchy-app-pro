@@ -1404,33 +1404,30 @@ async function processFile(file){
       const rows=await readPdfInvoiceSmart(file);
       if(rows.length>0){ showStructuredRows(rows,'PDF analysé automatiquement'); return; }
 
-      // Essai 2 : PDF sans texte → OCR Tesseract.js
-      status.textContent='🔎 PDF image — OCR en cours (30 sec)…';
+      // Essai 2 : PDF image → canvas + OpenAI Vision
+      status.textContent='🖼️ Conversion PDF → OpenAI Vision…';
       pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      const ab=await file.arrayBuffer();
-      const pdf=await pdfjsLib.getDocument({data:ab}).promise;
-      const page=await pdf.getPage(1);
-      const viewport=page.getViewport({scale:2.5});
-      const canvas=document.createElement('canvas');
-      canvas.width=viewport.width; canvas.height=viewport.height;
-      await page.render({canvasContext:canvas.getContext('2d'),viewport:viewport}).promise;
+      const abv=await file.arrayBuffer();
+      const pdfv=await pdfjsLib.getDocument({data:abv}).promise;
+      const pv=await pdfv.getPage(1);
+      const vpv=pv.getViewport({scale:1.5});
+      const cvv=document.createElement('canvas');
+      cvv.width=vpv.width; cvv.height=vpv.height;
+      await pv.render({canvasContext:cvv.getContext('2d'),viewport:vpv}).promise;
+      const imgV=cvv.toDataURL('image/jpeg',0.85);
 
-      if(typeof Tesseract !== 'undefined'){
-        const result=await Tesseract.recognize(canvas,'fra',{logger:m=>{
-          if(m.status==='recognizing text') status.textContent='🔎 OCR '+Math.round((m.progress||0)*100)+'%…';
-        }});
-        const ocrText=(result.data&&result.data.text)||'';
-        if(ocrText.length>30){
-          const ocrRows=extractInvoiceRowsFromText(ocrText);
-          if(ocrRows.length>0){ showStructuredRows(ocrRows,'OCR : '+ocrRows.length+' produit(s)'); return; }
-          // Mettre le texte dans la zone pour analyse manuelle
-          const ta=document.getElementById('order-text');
-          if(ta) ta.value=ocrText;
-          status.textContent='✅ OCR terminé — vérifiez le texte puis cliquez Analyser.';
-          return;
-        }
+      status.textContent='🤖 OpenAI Vision analyse le PDF…';
+      const rv=await fetch('/api/analyse-commande',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({filename:file.name,mime:'image/jpeg',dataUrl:imgV,texte:'',mode:'mag'})
+      });
+      const jv=await rv.json().catch(function(){return{ok:false};});
+      if(jv.ok&&jv.data&&jv.data.lignes&&jv.data.lignes.length>0){
+        const vr=jv.data.lignes.map(function(l){return{designation:l.designation||l.ref_frenchy||'',qty:Number(l.quantite)||1,pu:Number(l.prix_unitaire)||0};});
+        showStructuredRows(vr,'OpenAI Vision : '+vr.length+' produit(s)');
+      }else{
+        status.textContent='⚠️ PDF lu — 0 produit trouvé. Copiez-collez le tableau dans la zone texte.';
       }
-      status.textContent='⚠️ Impossible de lire le PDF. Copiez-collez le texte dans la zone.';
     }catch(err){ status.textContent='⚠️ Erreur PDF : '+err.message; }
     return;
   }
@@ -3039,31 +3036,41 @@ async function handleFactuFile(file,mode){
           return;
         }
 
-        // Essai 2 : PDF sans texte → OCR avec Tesseract.js (déjà chargé)
-        if(statusEl) statusEl.textContent='🔎 PDF image — OCR en cours (30 sec)…';
+        // Essai 2 : PDF sans texte → canvas + OpenAI Vision (rapide et fiable)
+        if(statusEl) statusEl.textContent='🖼️ Conversion PDF → OpenAI Vision…';
         var page1=await pdf2.getPage(1);
-        var viewport=page1.getViewport({scale:2.5}); // haute résolution pour l'OCR
-        var canvas=document.createElement('canvas');
-        canvas.width=viewport.width; canvas.height=viewport.height;
-        var ctx=canvas.getContext('2d');
-        await page1.render({canvasContext:ctx,viewport:viewport}).promise;
+        var vp2=page1.getViewport({scale:1.5});
+        var cv2=document.createElement('canvas');
+        cv2.width=vp2.width; cv2.height=vp2.height;
+        await page1.render({canvasContext:cv2.getContext('2d'),viewport:vp2}).promise;
+        var imgData=cv2.toDataURL('image/jpeg',0.85);
 
-        if(typeof Tesseract !== 'undefined'){
-          var result=await Tesseract.recognize(canvas,'fra',{logger:function(m){
-            if(m.status==='recognizing text' && statusEl)
-              statusEl.textContent='🔎 OCR '+Math.round((m.progress||0)*100)+'%…';
-          }});
-          var ocrText=(result.data&&result.data.text)||'';
-          if(ocrText.length>30){
-            var taPdf2=document.getElementById((mode==='mag'?'mag':'cab')+'-import-text');
-            if(taPdf2) taPdf2.value=ocrText;
-            if(statusEl) statusEl.textContent='🤖 OCR terminé — OpenAI analyse le texte…';
-            try{ await window.factuAnalyzeIA(mode); }catch(e3){ console.warn(e3); }
-            return;
+        if(statusEl) statusEl.textContent='🤖 OpenAI Vision analyse le PDF…';
+        var r2=await fetch('/api/analyse-commande',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({filename:file.name,mime:'image/jpeg',dataUrl:imgData,texte:'',mode:mode})
+        });
+        var j2=await r2.json().catch(function(){return{ok:false,error:'Erreur réseau'};});
+        if(j2.ok&&j2.data){
+          var lig=j2.data.lignes||[];
+          if(j2.data.numero_facture){var nf=document.getElementById(mode==='cab'?'cab-inv-num':'mag-inv-num');if(nf&&!nf.value)nf.value=j2.data.numero_facture;}
+          if(j2.data.ref_commande){var rf=document.getElementById(mode==='cab'?'cab-order-ref':'mag-order-ref');if(rf&&!rf.value)rf.value=j2.data.ref_commande;}
+          if(lig.length>0){
+            if(mode==='mag'){
+              magLines=lig.map(function(l){return{ref:l.ref_frenchy||'',nom:l.designation||'',couleur:l.couleur||'',taille:l.taille||'',grammage:l.grammage||'',qty:Number(l.quantite)||1,pu:Number(l.prix_unitaire)||0,pe:'',desCab:'',puCab:0};});
+              if(typeof renderMagLines==='function')renderMagLines();
+            }else{
+              cabLines=lig.map(function(l){return{pe:l.ref_frenchy||'',desCab:l.designation||'',ref:l.ref_frenchy||'',nom:l.designation||'',couleur:'',taille:'',grammage:'',qty:Number(l.quantite)||1,pu:0,puCab:Number(l.prix_unitaire)||0};});
+              if(typeof renderCabLines==='function')renderCabLines();
+            }
+            if(statusEl)statusEl.textContent='✅ '+lig.length+' produit(s) importés depuis le PDF !';
+            factuRenderTotals(mode);
+          }else{
+            if(statusEl)statusEl.textContent='⚠️ PDF lu — 0 produit détecté. Copiez-collez le texte dans la zone puis cliquez Analyser.';
           }
+        }else{
+          if(statusEl)statusEl.textContent='⚠️ '+(j2.error||'Vision impossible')+' — Copiez-collez le texte dans la zone.';
         }
-
-        if(statusEl) statusEl.textContent='⚠️ Impossible de lire le PDF. Copiez-collez le texte dans la zone ci-dessous.';
       }catch(pdfErr){
         if(statusEl)statusEl.textContent='⚠️ Erreur PDF : '+pdfErr.message;
         console.error('PDF error:',pdfErr);
