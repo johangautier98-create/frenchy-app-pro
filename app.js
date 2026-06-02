@@ -2981,19 +2981,44 @@ async function handleFactuFile(file,mode){
       return;
     }
 
-    // ── Image ou PDF : envoyer à OpenAI via /api/analyse-commande ──
-    var dataUrl = await toDataUrl(file);
+    // ── Image ou PDF ──
     var isPdf = file.type==='application/pdf' || file.name.match(/\.pdf$/i);
+    var dataUrl = '';
+    var pdfText = '';
 
-    if(statusEl) statusEl.textContent='🤖 OpenAI lit le document…';
+    if(isPdf){
+      // Pour les PDFs : extraire le texte avec PDF.js puis envoyer à OpenAI comme texte
+      if(statusEl) statusEl.textContent='📄 Extraction du texte PDF…';
+      if(typeof pdfjsLib !== 'undefined'){
+        pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        var ab=await file.arrayBuffer();
+        var pdf=await pdfjsLib.getDocument({data:ab}).promise;
+        var pages=[];
+        for(var pi=1;pi<=pdf.numPages;pi++){
+          var page=await pdf.getPage(pi);
+          var ct=await page.getTextContent();
+          pages.push(ct.items.map(function(x){return x.str;}).join(' '));
+        }
+        pdfText = pages.join('\n').trim();
+        // Mettre le texte extrait dans la zone
+        var taPdf=document.getElementById((mode==='mag'?'mag':'cab')+'-import-text');
+        if(taPdf) taPdf.value=pdfText;
+      }
+    } else {
+      // Images : envoyer en base64 (OpenAI vision)
+      dataUrl = await toDataUrl(file);
+    }
+
+    if(statusEl) statusEl.textContent='🤖 OpenAI analyse le document…';
 
     var resp = await fetch('/api/analyse-commande', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         filename: file.name,
-        mime: file.type,
+        mime: isPdf ? 'text/plain' : file.type,
         dataUrl: dataUrl,
+        texte: pdfText,
         mode: mode
       })
     });
