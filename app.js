@@ -3664,8 +3664,11 @@ function magGenDoc(type){
   const date=(document.getElementById('mag-inv-date')||{}).value||todayISO();
   const oref=(document.getElementById('mag-order-ref')||{}).value||'';
   const port=parseFloat((document.getElementById('mag-port')||{value:0}).value)||0;
+  const remisePct=parseFloat((document.getElementById('mag-remise')||{value:0}).value)||0;
   const ht=magLines.reduce((s,l)=>s+Number(l.qty)*Number(l.pu),0);
-  const net=ht+port;
+  const remiseMt=ht*remisePct/100;
+  const htRemise=ht-remiseMt;
+  const net=htRemise+port;
 
   const rows=magLines.map(l=>`<tr>
     <td class="mono">${fe(l.ref)}</td>
@@ -3684,8 +3687,9 @@ function magGenDoc(type){
     <td class="r"><strong>${l.qty}</strong></td><td class="r">□</td>
   </tr>`).join('');
 
-  const totRows=`
+const totRows=`
     <tr><td><strong>Total hors taxes</strong></td><td class="r"><strong>${mny(ht)}</strong></td></tr>
+    ${remisePct>0?`<tr style="color:#c62828;font-weight:700"><td>Remise ${remisePct}%</td><td class="r">− ${mny(remiseMt)}</td></tr><tr><td><strong>Total HT après remise</strong></td><td class="r"><strong>${mny(htRemise)}</strong></td></tr>`:''}
     ${port>0?`<tr><td>Frais de port</td><td class="r">${mny(port)}</td></tr>`:''}
     <tr class="tva"><td>TVA non applicable (Art. 293 B CGI)</td><td class="r">0,00&nbsp;€</td></tr>
     <tr class="grand"><td>Total net à payer</td><td class="r">${mny(net)}</td></tr>`;
@@ -3808,8 +3812,9 @@ function cabGenDoc(type){
     <td class="r"><strong>${mny(Number(l.qty)*Number(l.puCab))}</strong></td>
   </tr>`).join('');
 
-  const totRows=`
+const totRows=`
     <tr><td><strong>Total hors taxes</strong></td><td class="r"><strong>${mny(ht)}</strong></td></tr>
+    ${remisePct>0?`<tr style="color:#c62828;font-weight:700"><td>Remise ${remisePct}%</td><td class="r">− ${mny(remiseMt)}</td></tr><tr><td><strong>Total HT après remise</strong></td><td class="r"><strong>${mny(htRemise)}</strong></td></tr>`:''}
     ${port>0?`<tr><td>Frais de port</td><td class="r">${mny(port)}</td></tr>`:''}
     <tr class="tva"><td>TVA non applicable (Art. 293 B CGI)</td><td class="r">0,00&nbsp;€</td></tr>
     <tr class="grand"><td>Total net à payer</td><td class="r">${mny(net)}</td></tr>`;
