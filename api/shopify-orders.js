@@ -11,15 +11,29 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'x-admin-key,Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ ok: false, error: 'Methode non autorisee' });
+  // Auth — fail-closed : si ADMIN_API_KEY est défini, il DOIT correspondre
+  const crypto = require('crypto');
   const adminKey = process.env.ADMIN_API_KEY;
-  if (adminKey && req.headers['x-admin-key'] !== adminKey) {
-    return res.status(401).json({ ok: false, error: 'Non autorise' });
+  if (adminKey) {
+    const presented = req.headers['x-admin-key'] || '';
+    const a = Buffer.from(presented.padEnd(adminKey.length, '\0'));
+    const b = Buffer.from(adminKey);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+      return res.status(401).json({ ok: false, error: 'Non autorise' });
+    }
   }
 
   const store = (req.query.store || '').toLowerCase();
   const limit = Math.min(parseInt(req.query.limit) || 50, 250);
-  const status = req.query.status || 'any';
-  const page_info = req.query.page_info || '';
+  // Validation stricte du status
+  const ALLOWED_STATUS = new Set(['any','open','closed','cancelled']);
+  const status = ALLOWED_STATUS.has(req.query.status) ? req.query.status : 'any';
+  // Validation stricte du page_info
+  const raw_page_info = req.query.page_info || '';
+  if (raw_page_info && !/^[A-Za-z0-9_=-]+$/.test(raw_page_info)) {
+    return res.status(400).json({ ok: false, error: 'page_info invalide' });
+  }
+  const page_info = raw_page_info;
 
   let shopDomain, token;
 
@@ -36,8 +50,13 @@ module.exports = async function handler(req, res) {
   if (!token) return res.status(500).json({ ok: false, error: 'Token Shopify manquant dans les variables Vercel.' });
 
   try {
-    let url = `https://${shopDomain}/admin/api/2024-01/orders.json?limit=${limit}&status=${status}&fields=id,order_number,created_at,financial_status,fulfillment_status,total_price,currency,email,billing_address,line_items,tags,note`;
-    if (page_info) url += `&page_info=${page_info}`;
+    // Construction sécurisée de l'URL avec URL API
+    const u = new URL(`https://${shopDomain}/admin/api/2024-01/orders.json`);
+    u.searchParams.set('limit', String(limit));
+    u.searchParams.set('status', status);
+    u.searchParams.set('fields', 'id,order_number,created_at,financial_status,fulfillment_status,total_price,currency,email,billing_address,line_items,tags,note');
+    if (page_info) u.searchParams.set('page_info', page_info);
+    const url = u.toString();
 
     const r = await fetch(url, {
       headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' }
