@@ -1400,10 +1400,35 @@ async function processFile(file){
 
   if(file.type==='application/pdf' || file.name.match(/\.pdf$/i)){
     try{
+      // Essai 1 : extraction texte PDF.js
       const rows=await readPdfInvoiceSmart(file);
-      if(rows.length>0) showStructuredRows(rows,'PDF analysé automatiquement');
-      else status.textContent='⚠️ PDF lu, mais aucune colonne Désignation/Qté claire. Essayez un copier-coller du tableau.';
-    }catch(err){ status.textContent='⚠️ Impossible d\'extraire le PDF : '+err.message; }
+      if(rows.length>0){ showStructuredRows(rows,'PDF analysé automatiquement'); return; }
+
+      // Essai 2 : PDF sans texte (généré HTML/impression) → canvas + OpenAI Vision
+      status.textContent='🖼️ PDF image — conversion pour OpenAI Vision…';
+      pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const ab=await file.arrayBuffer();
+      const pdf=await pdfjsLib.getDocument({data:ab}).promise;
+      const page=await pdf.getPage(1);
+      const viewport=page.getViewport({scale:2.0});
+      const canvas=document.createElement('canvas');
+      canvas.width=viewport.width; canvas.height=viewport.height;
+      await page.render({canvasContext:canvas.getContext('2d'),viewport:viewport}).promise;
+      const imgDataUrl=canvas.toDataURL('image/jpeg',0.92);
+
+      status.textContent='🤖 OpenAI Vision lit le PDF…';
+      const resp=await fetch('/api/analyse-commande',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({filename:file.name,mime:'image/jpeg',dataUrl:imgDataUrl,texte:'',mode:'mag'})
+      });
+      const j=await resp.json().catch(function(){return{ok:false};});
+      if(j.ok && j.data && j.data.lignes && j.data.lignes.length>0){
+        const visionRows=j.data.lignes.map(function(l){return{designation:l.designation||l.ref_frenchy||'',qty:Number(l.quantite)||1,pu:Number(l.prix_unitaire)||0};});
+        showStructuredRows(visionRows,'OpenAI Vision : '+visionRows.length+' produit(s)');
+      } else {
+        status.textContent='⚠️ Aucun produit trouvé. Copiez-collez le tableau dans la zone texte.';
+      }
+    }catch(err){ status.textContent='⚠️ Erreur PDF : '+err.message; }
     return;
   }
 
