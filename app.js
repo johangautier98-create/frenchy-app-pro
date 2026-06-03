@@ -3804,26 +3804,34 @@ function flV40OpenPdfPrint(html){
 function flV40DownloadPack(html, baseName){
   const base=flV35SanitizeFilename(baseName||'document');
 
-  // Téléchargement PDF direct (html2pdf.js)
+  // Téléchargement PDF direct via iframe + html2pdf.js
   if(typeof html2pdf !== 'undefined'){
-    const container=document.createElement('div');
-    container.innerHTML=String(html||'').replace(/<!doctype[^>]*>/i,'').replace(/<html[^>]*>/i,'').replace(/<\/html>/i,'').replace(/<head>[\s\S]*?<\/head>/i,'').replace(/<body[^>]*>/i,'').replace(/<\/body>/i,'');
-    container.style.cssText='position:absolute;left:-9999px;top:0;width:210mm;background:#fff;';
-    document.body.appendChild(container);
+    // Créer un iframe caché avec le HTML complet (garde le CSS)
+    const iframe=document.createElement('iframe');
+    iframe.style.cssText='position:fixed;left:-9999px;top:0;width:210mm;height:297mm;border:none;background:#fff;';
+    document.body.appendChild(iframe);
 
-    html2pdf().set({
-      margin:[10,10,10,10],
-      filename: base+'.pdf',
-      image:{type:'jpeg',quality:0.98},
-      html2canvas:{scale:2,useCORS:true,letterRendering:true},
-      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
-    }).from(container).save().then(function(){
-      document.body.removeChild(container);
-    }).catch(function(){
-      document.body.removeChild(container);
-      // Fallback : ouvrir pour imprimer
-      flV40OpenPdfPrint(html);
-    });
+    // Écrire le HTML complet dans l'iframe
+    iframe.contentDocument.open();
+    iframe.contentDocument.write(String(html||''));
+    iframe.contentDocument.close();
+
+    // Attendre que le contenu soit rendu
+    setTimeout(function(){
+      html2pdf().set({
+        margin:[8,8,8,8],
+        filename: base+'.pdf',
+        image:{type:'jpeg',quality:0.98},
+        html2canvas:{scale:2,useCORS:true,allowTaint:true,backgroundColor:'#fff'},
+        jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+      }).from(iframe.contentDocument.body).save().then(function(){
+        document.body.removeChild(iframe);
+      }).catch(function(err){
+        console.warn('html2pdf error:',err);
+        document.body.removeChild(iframe);
+        flV40OpenPdfPrint(html);
+      });
+    }, 800);
     return;
   }
 
