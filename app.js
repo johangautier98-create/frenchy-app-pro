@@ -3803,10 +3803,27 @@ function flV40OpenPdfPrint(html){
 }
 function flV40DownloadPack(html, baseName){
   const base=flV35SanitizeFilename(baseName||'document');
-  flV35DownloadDesignedDoc(html, base+'.html');
-  flV40DownloadExcelPremium(html, base+'.xls');
-  flV40OpenPdfPrint(html);
-  setTimeout(function(){ alert('✅ Fichiers téléchargés : HTML premium + Excel.\n\nPour le PDF : dans la fenêtre ouverte, choisis Enregistrer au format PDF.'); }, 300);
+  const isMobile=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  if(isMobile){
+    // Mobile : ouvrir dans un nouvel onglet pour visualiser et enregistrer en PDF
+    const w=window.open('','_blank');
+    if(w){
+      w.document.open();
+      w.document.write(String(html||''));
+      w.document.close();
+      setTimeout(function(){ alert('📱 Facture ouverte.\n\nPour sauvegarder en PDF :\nPartager → Enregistrer en PDF (ou Imprimer)'); },400);
+    } else {
+      // Popup bloqué : télécharger en HTML
+      flV35DownloadDesignedDoc(html, base+'.html');
+      alert('Facture téléchargée. Ouvre le fichier .html dans ton navigateur pour voir et imprimer.');
+    }
+  } else {
+    // Desktop : HTML + XLS + PDF print
+    flV35DownloadDesignedDoc(html, base+'.html');
+    flV40DownloadExcelPremium(html, base+'.xls');
+    flV40OpenPdfPrint(html);
+    setTimeout(function(){ alert('✅ Fichiers téléchargés.\n\nPour le PDF : dans la fenêtre ouverte, choisis Enregistrer au format PDF.'); }, 300);
+  }
 }
 function flV35GetProductFromLine(l){if(!l)return null;if(l.ref&&typeof CATALOGUE!=='undefined'){const p=CATALOGUE.find(x=>x.ref===l.ref);if(p)return p;}if(l.ean&&typeof CATALOGUE!=='undefined'){const p=CATALOGUE.find(x=>String(x.ean||'')===String(l.ean||''));if(p)return p;}return null;}
 function flV35SyncFactuToCommandes(mode, lines, existingResults){const results=[];(existingResults||[]).forEach(r=>{if(r&&r.matched&&r.product)results.push(r);});(lines||[]).forEach(l=>{const p=flV35GetProductFromLine(l);if(!p)return;if(results.some(r=>r.product&&r.product.ref===p.ref))return;results.push({matched:true,product:p,qty:parseInt(l.qty)||1,line:(mode==='cab'?(l.pe||l.ref||'')+' '+(l.desCab||l.nom||''):(l.ref||'')+' '+(l.nom||''))});});if(results.length){orderResults=results;try{renderOrderResults();}catch(e){console.warn('V35 render commandes',e);}const tab=document.getElementById('tab-commande');if(tab){tab.classList.add('fl-v35-pulse');setTimeout(()=>tab.classList.remove('fl-v35-pulse'),3500);}const st=document.getElementById((mode==='mag'?'mag':'cab')+'-import-status');if(st)st.textContent+=' — codes-barres préparés dans Commandes';}}
