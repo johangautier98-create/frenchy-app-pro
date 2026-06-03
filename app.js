@@ -4068,7 +4068,9 @@ window.catSaveProduit = async function(){
     /* Injecter dans RAW + CATALOGUE immédiatement */
     RAW.unshift([ref,nom,famille,couleur,taille,grammage,cond,ht,pvc,ean,ronde]);
     CATALOGUE.unshift({ref:ref,produit:nom,famille:famille,couleur:couleur,taille:taille,
-      grammage:grammage,cond:cond,ht:ht,pvc:pvc,ean:ean,ronde:!!ronde,format:'40x30'});
+      grammage:grammage,cond:cond,ht:ht,pvc:pvc,ean:ean,ronde:!!ronde,format:'40x30',_custom:true});
+    /* Sauvegarder dans localStorage pour persistance au rechargement */
+    if(typeof saveCustomCatalogue==='function') saveCustomCatalogue();
     /* Vider les filtres pour que le nouveau produit soit visible */
     var catSearch=document.getElementById('cat-search');
     var catFamille=document.getElementById('cat-famille');
