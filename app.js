@@ -3805,48 +3805,21 @@ function flV40OpenPdfPrint(html){
   w.document.close();
 }
 function flV40DownloadPack(html, baseName){
-  const base=flV35SanitizeFilename(baseName||'document');
-
-  // Téléchargement PDF direct via iframe + html2pdf.js
-  if(typeof html2pdf !== 'undefined'){
-    // Nettoyer le HTML : supprimer le script window.print() et @page avant html2pdf
-    var cleanHtml = flV35RemovePrintScript(String(html||''));
-
-    const iframe=document.createElement('iframe');
-    iframe.style.cssText='position:fixed;left:-9999px;top:0;width:794px;height:auto;border:none;background:#fff;';
-    document.body.appendChild(iframe);
-
-    iframe.contentDocument.open();
-    iframe.contentDocument.write(cleanHtml);
-    iframe.contentDocument.close();
-
-    setTimeout(function(){
-      html2pdf().set({
-        margin:[15,15,15,15],
-        filename: base+'.pdf',
-        image:{type:'jpeg',quality:0.98},
-        html2canvas:{scale:2,useCORS:true,allowTaint:true,backgroundColor:'#fff',windowWidth:794,scrollX:0,scrollY:0},
-        jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
-      }).from(iframe.contentDocument.body).save().then(function(){
-        document.body.removeChild(iframe);
-      }).catch(function(err){
-        console.warn('html2pdf error:',err);
-        document.body.removeChild(iframe);
-        flV40OpenPdfPrint(html);
-      });
-    }, 1000);
-    return;
-  }
-
-  // Fallback si html2pdf pas chargé : ouvrir dans un nouvel onglet
-  const w=window.open('','_blank');
+  // Ouvrir dans un nouvel onglet SANS auto-print → qualité parfaite
+  // L'utilisateur enregistre via Ctrl+P → "Enregistrer en PDF"
+  var cleanHtml = flV35RemovePrintScript(String(html||''));
+  var w = window.open('','_blank');
   if(w){
     w.document.open();
-    w.document.write(String(html||''));
+    w.document.write(cleanHtml);
     w.document.close();
-    setTimeout(function(){ w.print(); }, 500);
+    var toast=document.createElement('div');
+    toast.innerHTML='📄 Facture ouverte dans un nouvel onglet<br><strong>Ctrl+P → "Enregistrer en PDF"</strong>';
+    toast.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1565c0;color:#fff;padding:14px 22px;border-radius:10px;font-size:14px;font-weight:700;z-index:9999;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,0.3);line-height:1.5;white-space:nowrap';
+    document.body.appendChild(toast);
+    setTimeout(function(){toast.remove();},6000);
   } else {
-    flV35DownloadDesignedDoc(html, base+'.html');
+    alert('Autorisez les popups puis réessayez — ou utilisez "Imprimer facture" pour enregistrer en PDF.');
   }
 }
 function flV35GetProductFromLine(l){if(!l)return null;if(l.ref&&typeof CATALOGUE!=='undefined'){const p=CATALOGUE.find(x=>x.ref===l.ref);if(p)return p;}if(l.ean&&typeof CATALOGUE!=='undefined'){const p=CATALOGUE.find(x=>String(x.ean||'')===String(l.ean||''));if(p)return p;}return null;}
