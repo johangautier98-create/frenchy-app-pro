@@ -2682,10 +2682,19 @@ window.histoReopen = function(id){
   var remise=document.getElementById(mode+'-remise');
   if(num)num.value=f.numero||'';
   if(date)date.value=f.date_facture||'';
-  if(port)port.value=f.montant_port||0;
-  if(remise)remise.value=f.remise_pct||0;
+  // frais_port est le vrai nom de colonne Supabase
+  if(port)port.value=f.frais_port||f.montant_port||0;
+  // remise_pct n'est pas en base → la recalculer depuis montant_ht et montant_total
+  var remisePctRestored=0;
+  if(f.montant_ht>0){
+    var portVal=parseFloat(f.frais_port||f.montant_port||0);
+    var htApresPort=parseFloat(f.montant_total||0)-portVal;
+    var calc=Math.round((1-(htApresPort/f.montant_ht))*1000)/10;
+    if(calc>0&&calc<=100)remisePctRestored=calc;
+  }
+  if(remise)remise.value=remisePctRestored;
   // Recharger les lignes
-  var lignes=f.lignes_json||f.lignes;
+  var lignes=f.lignes;
   if(typeof lignes==='string'){try{lignes=JSON.parse(lignes);}catch(e){lignes=[];}}
   if(Array.isArray(lignes)&&lignes.length){
     if(mode==='mag'){
@@ -2696,17 +2705,25 @@ window.histoReopen = function(id){
       if(typeof renderCabLines==='function')renderCabLines();
     }
   }
-  // Sélectionner le client
+  // Sélectionner le client ET déclencher le change pour initialiser magClient/cabClient
   setTimeout(function(){
     var sel=document.getElementById(mode+'-client-sel');
     if(sel&&f.client_nom){
       for(var i=0;i<sel.options.length;i++){
-        if(sel.options[i].text.includes(f.client_nom)){sel.selectedIndex=i;break;}
+        if(sel.options[i].text.includes(f.client_nom)){
+          sel.selectedIndex=i;
+          sel.dispatchEvent(new Event('change')); // initialise magClient/cabClient
+          break;
+        }
       }
     }
     factuRenderTotals(mode);
-  },300);
-  if(typeof toast==='function')toast('✏️ Facture '+f.numero+' chargée — modifiez puis réimprimez.');
+    // Toast de confirmation
+    var tk=document.createElement('div');
+    tk.textContent='✏️ Facture '+f.numero+' chargée — prête à imprimer ou modifier';
+    tk.style.cssText='position:fixed;bottom:20px;right:20px;background:#1565c0;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999';
+    document.body.appendChild(tk);setTimeout(function(){tk.remove();},4000);
+  },400);
 };
 
 /* Réimprimer une facture depuis l\'historique */
