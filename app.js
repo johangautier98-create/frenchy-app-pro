@@ -1054,12 +1054,43 @@ function saveCustomCatalogue(){
 }
 
 function loadCustomCatalogue(){
+  // 1. Charger depuis localStorage (immédiat)
   try{
     var stored=JSON.parse(localStorage.getItem('fl_custom_catalogue')||'[]');
     stored.forEach(function(p){
-      if(!CATALOGUE.find(function(x){return x.ref===p.ref;})) CATALOGUE.push(p);
+      if(!CATALOGUE.find(function(x){return x.ref===p.ref;})){
+        p._custom=true;
+        CATALOGUE.push(p);
+      }
     });
   }catch(e){}
+
+  // 2. Charger depuis Supabase (async - récupère les produits sauvegardés même si localStorage vidé)
+  var db=window.db;
+  if(db){
+    db.from('products').select('*').eq('source','manuel').then(function(r){
+      if(r.error||!r.data||!r.data.length) return;
+      var added=false;
+      r.data.forEach(function(p){
+        var ref=p.ref||'';
+        if(!ref) return;
+        if(!CATALOGUE.find(function(x){return x.ref===ref;})){
+          CATALOGUE.push({
+            ref:ref, produit:p.produit||'', famille:p.famille||'',
+            couleur:p.couleur||'', taille:p.taille||'', grammage:p.grammage||'',
+            cond:p.conditionnement||'', ht:Number(p.prix_ht)||0, pvc:Number(p.pvc)||0,
+            ean:p.ean13||'', ronde:!!p.etiq_ronde, format:'40x30', _custom:true
+          });
+          added=true;
+        }
+      });
+      if(added){
+        saveCustomCatalogue(); // synchro dans localStorage
+        if(typeof buildFilters==='function') buildFilters();
+        if(typeof renderCatalogue==='function') renderCatalogue();
+      }
+    }).catch(function(){});
+  }
 }
 
 function openEditManualModal(ref){
