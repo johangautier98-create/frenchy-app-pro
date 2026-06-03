@@ -2572,7 +2572,10 @@ function showFactuTab(name){
 // ── NUMÉROTATION AUTOMATIQUE DES FACTURES ──────────────────────────────────
 window.autoFillInvNum = async function(mode){
   var el = document.getElementById(mode+'-inv-num');
-  if(!el || el.value) return; // déjà rempli
+  // Ne pas écraser si l'utilisateur a tapé un vrai numéro personnalisé
+  var defaultPat = /^(FL|CAB)-\d{4}-\d{3}$/;
+  if(!el) return;
+  if(el.value && !defaultPat.test(el.value)) return;
 
   var year = new Date().getFullYear();
   var prefix = 'FL-'+year+'-';
@@ -3679,7 +3682,7 @@ function printCSS(){
 // ── GÉNÉRATION FACTURE MAGASIN ────────────────────────────────────────
 // ARCHIVAGE FACTURES
 async function archiveFacture(opts){
-  var db=window.db;if(!db)return;
+  var db=window.db;if(!db){var tn=document.createElement('div');tn.textContent='❌ Base de données non connectée — réessayez dans 2 secondes';tn.style.cssText='position:fixed;bottom:20px;right:20px;background:#c62828;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999';document.body.appendChild(tn);setTimeout(function(){tn.remove();},5000);return;}
   try{
     var r=await db.from('factures').insert([{numero:opts.num||'',type_doc:opts.typeDoc||'facture',type_client:opts.typeClient||'magasin',client_nom:opts.clientNom||'',client_email:opts.clientEmail||'',client_adresse:opts.clientAdresse||'',date_facture:opts.date||todayISO(),ref_commande:opts.refCmd||'',montant_ht:opts.ht||0,frais_port:opts.port||0,remise_pct:opts.remisePct||0,montant_remise:opts.remiseMt||0,montant_total:opts.total||0,statut_paiement:'en_attente',lignes:JSON.stringify(opts.lignes||[]),lignes_json:JSON.stringify(opts.lignes||[])}]).select();
     if(!r.error){console.log('Facture archivee:',opts.num);var t=document.createElement('div');t.textContent='✅ Facture '+opts.num+' enregistrée !';t.style.cssText='position:fixed;bottom:20px;right:20px;background:#2e7d32;color:#fff;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:700;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3)';document.body.appendChild(t);setTimeout(function(){t.remove();},4000);if(typeof renderHistorique==='function')renderHistorique();}else{var te=document.createElement('div');te.textContent='❌ Erreur sauvegarde: '+JSON.stringify(r.error);te.style.cssText='position:fixed;bottom:20px;right:20px;background:#c62828;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999;max-width:320px';document.body.appendChild(te);setTimeout(function(){te.remove();},6000);console.error('Archive error:',r.error);}
@@ -3806,23 +3809,23 @@ function flV40DownloadPack(html, baseName){
 
   // Téléchargement PDF direct via iframe + html2pdf.js
   if(typeof html2pdf !== 'undefined'){
-    // Créer un iframe caché avec le HTML complet (garde le CSS)
+    // Nettoyer le HTML : supprimer le script window.print() et @page avant html2pdf
+    var cleanHtml = flV35RemovePrintScript(String(html||''));
+
     const iframe=document.createElement('iframe');
-    iframe.style.cssText='position:fixed;left:-9999px;top:0;width:210mm;height:297mm;border:none;background:#fff;';
+    iframe.style.cssText='position:fixed;left:-9999px;top:0;width:794px;height:auto;border:none;background:#fff;';
     document.body.appendChild(iframe);
 
-    // Écrire le HTML complet dans l'iframe
     iframe.contentDocument.open();
-    iframe.contentDocument.write(String(html||''));
+    iframe.contentDocument.write(cleanHtml);
     iframe.contentDocument.close();
 
-    // Attendre que le contenu soit rendu
     setTimeout(function(){
       html2pdf().set({
-        margin:[8,8,8,8],
+        margin:[15,15,15,15],
         filename: base+'.pdf',
         image:{type:'jpeg',quality:0.98},
-        html2canvas:{scale:2,useCORS:true,allowTaint:true,backgroundColor:'#fff'},
+        html2canvas:{scale:2,useCORS:true,allowTaint:true,backgroundColor:'#fff',windowWidth:794,scrollX:0,scrollY:0},
         jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
       }).from(iframe.contentDocument.body).save().then(function(){
         document.body.removeChild(iframe);
@@ -3831,7 +3834,7 @@ function flV40DownloadPack(html, baseName){
         document.body.removeChild(iframe);
         flV40OpenPdfPrint(html);
       });
-    }, 800);
+    }, 1000);
     return;
   }
 
