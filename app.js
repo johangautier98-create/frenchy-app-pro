@@ -3659,16 +3659,16 @@ function printCSS(){
     .docinfo td{padding:2px 5px}.docinfo td:first-child{font-weight:700;color:#000;text-align:right}
     .parties{display:flex;gap:16px;margin-bottom:12px}
     .party{flex:1;border:1px solid #000;padding:8px;font-size:10px}
-    .party h3{margin:0 0 5px;font-size:10px;background:#111;color:#fff;padding:2px 6px;font-weight:700;display:inline-block}
+    .party h3{margin:0 0 5px;font-size:10px;background:#f0f0f0;color:#000;padding:2px 6px;font-weight:700;display:inline-block;border:1px solid #ccc}
     table.lg{width:100%;border-collapse:collapse;margin-top:6px}
-    table.lg th{background:#111;color:#fff;padding:5px 6px;font-size:10px;text-align:left;white-space:nowrap}
+    table.lg th{background:#fff;color:#000;border:1px solid #000;padding:5px 6px;font-size:10px;font-weight:700;text-align:left;white-space:nowrap}
     table.lg th.r,table.lg td.r{text-align:right;white-space:nowrap}
-    table.lg td{border:1px solid #000;padding:4px 6px;font-size:10px;vertical-align:middle;white-space:nowrap}
-    table.lg tr:nth-child(even){background:#fff}
+    table.lg td{border:1px solid #000;padding:4px 6px;font-size:10px;vertical-align:middle;white-space:nowrap;color:#000}
+    table.lg tr:nth-child(even){background:#fafafa}
     .tot{margin-left:auto;width:260px;margin-top:8px;border-collapse:collapse}
-    .tot td{padding:5px 10px;border:1px solid #000;font-size:11px}
+    .tot td{padding:5px 10px;border:1px solid #000;font-size:11px;color:#000}
     .tot tr.tva td{color:#000;font-size:10px}
-    .tot tr.grand td{background:#111;color:#fff;font-weight:700;font-size:13px}
+    .tot tr.grand td{background:#fff;color:#000;font-weight:700;font-size:13px;border-top:2px solid #000}
     .refs{margin-top:12px;border:2px solid #000;border-radius:4px;padding:8px 12px}
     .refs h3{color:#000;margin:0 0 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em}
     .refs table{font-size:10px;width:100%}.refs td{padding:2px 6px}.refs td:first-child{font-weight:700;width:170px}
@@ -3682,8 +3682,8 @@ async function archiveFacture(opts){
   var db=window.db;if(!db)return;
   try{
     var r=await db.from('factures').insert([{numero:opts.num||'',type_doc:opts.typeDoc||'facture',type_client:opts.typeClient||'magasin',client_nom:opts.clientNom||'',client_email:opts.clientEmail||'',client_adresse:opts.clientAdresse||'',date_facture:opts.date||todayISO(),ref_commande:opts.refCmd||'',montant_ht:opts.ht||0,frais_port:opts.port||0,remise_pct:opts.remisePct||0,montant_remise:opts.remiseMt||0,montant_total:opts.total||0,statut_paiement:'en_attente',lignes:JSON.stringify(opts.lignes||[]),lignes_json:JSON.stringify(opts.lignes||[])}]).select();
-    if(!r.error){console.log('Facture archivee:',opts.num);var t=document.createElement('div');t.textContent='Facture '+opts.num+' archivee';t.style.cssText='position:fixed;bottom:20px;right:20px;background:#2e7d32;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999';document.body.appendChild(t);setTimeout(function(){t.remove();},3000);if(typeof renderHistorique==='function')renderHistorique();}
-  }catch(e){console.warn('Archive:',e);}
+    if(!r.error){console.log('Facture archivee:',opts.num);var t=document.createElement('div');t.textContent='✅ Facture '+opts.num+' enregistrée !';t.style.cssText='position:fixed;bottom:20px;right:20px;background:#2e7d32;color:#fff;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:700;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3)';document.body.appendChild(t);setTimeout(function(){t.remove();},4000);if(typeof renderHistorique==='function')renderHistorique();}else{var te=document.createElement('div');te.textContent='❌ Erreur sauvegarde: '+JSON.stringify(r.error);te.style.cssText='position:fixed;bottom:20px;right:20px;background:#c62828;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999;max-width:320px';document.body.appendChild(te);setTimeout(function(){te.remove();},6000);console.error('Archive error:',r.error);}
+  }catch(e){console.warn('Archive:',e);var te2=document.createElement('div');te2.textContent='❌ Erreur: '+e.message;te2.style.cssText='position:fixed;bottom:20px;right:20px;background:#c62828;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999';document.body.appendChild(te2);setTimeout(function(){te2.remove();},6000);}
 }
 
 
@@ -3870,8 +3870,11 @@ function cabGenDoc(type){
   const deliv=(document.getElementById('cab-delivery-date')||{}).value||'';
   const supp=(document.getElementById('cab-supplier-code')||{}).value||'FE00513';
   const port=parseFloat((document.getElementById('cab-port')||{value:0}).value)||0;
+  const remisePct=parseFloat((document.getElementById('cab-remise')||{value:0}).value)||0;
   const ht=cabLines.reduce((s,l)=>s+Number(l.qty)*Number(l.puCab),0);
-  const net=ht+port;
+  const remiseMt=ht*remisePct/100;
+  const htRemise=ht-remiseMt;
+  const net=htRemise+port;
 
   const rows=cabLines.map(l=>`<tr>
     <td class="mono">${fe(l.pe||'—')}</td>

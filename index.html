@@ -619,6 +619,7 @@ Rouget 9cm 14g x8"></textarea>
       </div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
+      <button class="btn" style="background:#1565c0;color:#fff;border-color:#1565c0;font-weight:700;font-size:14px;" onclick="_magArchive('invoice')">💾 Enregistrer la facture</button>
       <button class="btn btn-success" onclick="magPrint('invoice')">🧾 Imprimer facture</button>
       <button class="btn btn-dark" onclick="magDownload('invoice')">⬇️ Télécharger facture</button>
       <button class="btn btn-success" onclick="magPrint('delivery')">📦 Imprimer bon livraison</button>
@@ -704,6 +705,7 @@ Rouget 9cm 14g x8"></textarea>
         <input type="number" id="cab-port" value="0" min="0" step="0.01" oninput="factuRenderTotals('cab')"/></div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
+      <button class="btn" style="background:#1565c0;color:#fff;border-color:#1565c0;font-weight:700;font-size:14px;" onclick="_cabArchive('invoice')">💾 Enregistrer la facture</button>
       <button class="btn btn-success" style="background:#c62828;border-color:#c62828;" onclick="cabPrint('invoice')">🧾 Imprimer facture</button>
       <button class="btn btn-dark" onclick="cabDownload('invoice')">⬇️ Télécharger facture</button>
       <button class="btn btn-success" style="background:#c62828;border-color:#c62828;" onclick="cabPrint('delivery')">📦 Imprimer bon livraison</button>
@@ -1746,7 +1748,7 @@ Rouget 9cm 14g x8"></textarea>
 
 <div id="pToast"></div>
 <script src="catalogue.js?v=20260603"></script>
-<script src="app.js?v=20260603"></script>
+<script src="app.js?v=20260604"></script>
 <script src="comptes-pro.js?v=20260603"></script>
 <script src="comptabilite.js?v=20260603"></script>
 <script id="fl-v39-nav-clean">
