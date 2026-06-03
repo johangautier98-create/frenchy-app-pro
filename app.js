@@ -3803,26 +3803,39 @@ function flV40OpenPdfPrint(html){
 }
 function flV40DownloadPack(html, baseName){
   const base=flV35SanitizeFilename(baseName||'document');
-  const isMobile=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-  if(isMobile){
-    // Mobile : ouvrir dans un nouvel onglet pour visualiser et enregistrer en PDF
-    const w=window.open('','_blank');
-    if(w){
-      w.document.open();
-      w.document.write(String(html||''));
-      w.document.close();
-      setTimeout(function(){ alert('📱 Facture ouverte.\n\nPour sauvegarder en PDF :\nPartager → Enregistrer en PDF (ou Imprimer)'); },400);
-    } else {
-      // Popup bloqué : télécharger en HTML
-      flV35DownloadDesignedDoc(html, base+'.html');
-      alert('Facture téléchargée. Ouvre le fichier .html dans ton navigateur pour voir et imprimer.');
-    }
+
+  // Téléchargement PDF direct (html2pdf.js)
+  if(typeof html2pdf !== 'undefined'){
+    const container=document.createElement('div');
+    container.innerHTML=String(html||'').replace(/<!doctype[^>]*>/i,'').replace(/<html[^>]*>/i,'').replace(/<\/html>/i,'').replace(/<head>[\s\S]*?<\/head>/i,'').replace(/<body[^>]*>/i,'').replace(/<\/body>/i,'');
+    container.style.cssText='position:absolute;left:-9999px;top:0;width:210mm;background:#fff;';
+    document.body.appendChild(container);
+
+    html2pdf().set({
+      margin:[10,10,10,10],
+      filename: base+'.pdf',
+      image:{type:'jpeg',quality:0.98},
+      html2canvas:{scale:2,useCORS:true,letterRendering:true},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+    }).from(container).save().then(function(){
+      document.body.removeChild(container);
+    }).catch(function(){
+      document.body.removeChild(container);
+      // Fallback : ouvrir pour imprimer
+      flV40OpenPdfPrint(html);
+    });
+    return;
+  }
+
+  // Fallback si html2pdf pas chargé : ouvrir dans un nouvel onglet
+  const w=window.open('','_blank');
+  if(w){
+    w.document.open();
+    w.document.write(String(html||''));
+    w.document.close();
+    setTimeout(function(){ w.print(); }, 500);
   } else {
-    // Desktop : HTML + XLS + PDF print
     flV35DownloadDesignedDoc(html, base+'.html');
-    flV40DownloadExcelPremium(html, base+'.xls');
-    flV40OpenPdfPrint(html);
-    setTimeout(function(){ alert('✅ Fichiers téléchargés.\n\nPour le PDF : dans la fenêtre ouverte, choisis Enregistrer au format PDF.'); }, 300);
   }
 }
 function flV35GetProductFromLine(l){if(!l)return null;if(l.ref&&typeof CATALOGUE!=='undefined'){const p=CATALOGUE.find(x=>x.ref===l.ref);if(p)return p;}if(l.ean&&typeof CATALOGUE!=='undefined'){const p=CATALOGUE.find(x=>String(x.ean||'')===String(l.ean||''));if(p)return p;}return null;}
