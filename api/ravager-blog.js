@@ -14,18 +14,28 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const token   = process.env.SHOPIFY_RAVAGER_CONTENT_TOKEN;
-  const blogId  = process.env.RAVAGER_BLOG_ID;
+  // Utilise SHOPIFY_RAVAGER_CONTENT_TOKEN ou le token existant SHOPIFY_RAVAGER_TOKEN
+  const token   = process.env.SHOPIFY_RAVAGER_CONTENT_TOKEN || process.env.SHOPIFY_RAVAGER_TOKEN;
   const fbPageId    = process.env.RAVAGER_FB_PAGE_ID;
   const fbPageToken = process.env.RAVAGER_FB_PAGE_TOKEN;
 
-  if (!token)  return res.status(500).json({ ok: false, error: 'SHOPIFY_RAVAGER_CONTENT_TOKEN manquant' });
-  if (!blogId) return res.status(500).json({ ok: false, error: 'RAVAGER_BLOG_ID manquant' });
+  if (!token) return res.status(500).json({ ok: false, error: 'Token Shopify RAVAGER manquant dans Vercel (SHOPIFY_RAVAGER_TOKEN)' });
 
   const shopHeaders = {
     'X-Shopify-Access-Token': token,
     'Content-Type': 'application/json'
   };
+
+  // Récupérer le blog ID : depuis env var ou auto-detect (premier blog)
+  let blogId = process.env.RAVAGER_BLOG_ID;
+  if (!blogId) {
+    try {
+      const bRes = await fetch(`${API}/blogs.json`, { headers: shopHeaders });
+      const bData = await bRes.json();
+      blogId = bData.blogs && bData.blogs[0] ? String(bData.blogs[0].id) : null;
+    } catch(e) { blogId = null; }
+  }
+  if (!blogId) return res.status(500).json({ ok: false, error: 'Aucun blog trouvé sur Shopify RAVAGER. Créez un blog dans Shopify Admin.' });
 
   // ── GET /api/ravager-blog → liste des articles ──
   if (req.method === 'GET') {
