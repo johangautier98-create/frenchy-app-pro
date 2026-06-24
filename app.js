@@ -3050,6 +3050,29 @@ function autoFillCabestoFields(detected){
     if(d) d.value = detected.date;
   }
 }
+// Rapproche une ligne brute renvoyée par OpenAI (analyse-commande) avec le catalogue local.
+// OpenAI ne connaît pas nos références/prix internes : le catalogue est toujours prioritaire
+// quand un match fiable est trouvé, sinon on retombe sur ce qu'OpenAI a extrait.
+function matchOpenAILine(l){
+  var nom = l.designation || l.ref_frenchy || l.ref_client || '';
+  var qty = Math.max(1, parseInt(l.quantite)||1);
+  var searchLine = [nom, l.grammage, l.taille, l.couleur].filter(Boolean).join(' ');
+  var catMatch = null;
+  if(typeof CATALOGUE !== 'undefined' && searchLine){
+    var m = matchProduct(searchLine);
+    if(m && m.matched) catMatch = m.product;
+  }
+  return {
+    catMatch: catMatch,
+    ref: catMatch ? catMatch.ref : (l.ref_frenchy || l.ref_client || nom),
+    nom: catMatch ? catMatch.produit : nom,
+    couleur: catMatch ? (catMatch.couleur||'') : (l.couleur||''),
+    taille: catMatch ? (catMatch.taille||'') : (l.taille||''),
+    grammage: catMatch ? (catMatch.grammage||'') : (l.grammage||''),
+    qty: qty,
+    pu: (catMatch && Number(catMatch.ht)) ? Number(catMatch.ht) : (parseFloat(l.prix_unitaire)||0)
+  };
+}
 async function handleFactuFile(file,mode){
   const statusEl=document.getElementById((mode==='mag'?'mag':'cab')+'-import-status');
   if(statusEl){ statusEl.style.display='block'; statusEl.textContent='⏳ OpenAI analyse le document…'; }
@@ -3238,36 +3261,13 @@ async function handleFactuFile(file,mode){
       if(ta && textLines) ta.value = textLines;
 
       if(mode === 'mag' && lignes.length > 0){
-        // Injection directe des lignes OpenAI dans magLines (pas de matching catalogue)
+        var unmatchedCount = 0;
         magLines = lignes.map(function(l){
-          var nom = l.designation || l.ref_frenchy || '';
-          var qty = Math.max(1, parseInt(l.quantite)||1);
-          var pu = parseFloat(l.prix_unitaire)||0;
-          var catMatch = null;
-          // Toujours chercher dans le catalogue — priorité sur le prix OpenAI
-          if(typeof CATALOGUE !== 'undefined'){
-            var nl = nom.toLowerCase().replace(/[-_]/g,' ');
-            var refFr = String(l.ref_frenchy||'').toLowerCase().replace(/[-_]/g,' ');
-            var scored = CATALOGUE.map(function(p){
-              var hay = [p.produit,p.couleur,p.taille,p.grammage,p.ref].join(' ').toLowerCase().replace(/[-_]/g,' ');
-              // Bonus si la ref_frenchy correspond directement
-              if(refFr && hay.includes(refFr)) return {p:p, s:0.99};
-              var words = nl.split(/\s+/).filter(function(w){return w.length>2;});
-              var hits = words.filter(function(w){return hay.includes(w);}).length;
-              return {p:p, s:words.length?hits/words.length:0};
-            }).sort(function(a,b){return b.s-a.s;});
-            var best = scored[0];
-            if(best && best.s >= 0.25){
-              catMatch = best.p;
-              if(Number(best.p.ht)) pu = Number(best.p.ht);
-            }
-          }
-          var couleur = catMatch ? (catMatch.couleur||'') : '';
-          var taille = catMatch ? (catMatch.taille||'') : '';
-          var grammage = catMatch ? (catMatch.grammage||'') : '';
-          return {ref:l.ref_frenchy||(catMatch?catMatch.ref:'')||nom, nom:catMatch?catMatch.produit:nom, couleur:couleur, taille:taille, grammage:grammage, qty:qty, pu:pu, pe:'', desCab:nom.toUpperCase(), puCab:pu};
+          var ml = matchOpenAILine(l);
+          if(!ml.catMatch) unmatchedCount++;
+          return {ref:ml.ref, nom:ml.nom, couleur:ml.couleur, taille:ml.taille, grammage:ml.grammage, qty:ml.qty, pu:ml.pu, pe:'', desCab:ml.nom.toUpperCase(), puCab:ml.pu};
         });
-        if(statusEl) statusEl.textContent = '✅ '+magLines.length+' produit(s) importés — vérifiez les prix HT';
+        if(statusEl) statusEl.textContent = '✅ '+magLines.length+' produit(s) importés'+(unmatchedCount?' ('+unmatchedCount+' sans référence catalogue — à vérifier)':' — vérifiez les prix HT');
         renderMagLines();
       } else {
         if(mode === 'cab') { cabLines = []; if(typeof renderCabLines === 'function') renderCabLines(); }
@@ -3351,36 +3351,33 @@ window.factuAnalyzeIA = async function(mode){
 
       var lignes = data.lignes || [];
       if(lignes.length > 0){
-        // Injection directe des lignes sans passer par factuAnalyze
+        var unmatchedCount = 0;
+        // Rapproche chaque ligne OpenAI avec le catalogue local pour récupérer ref/prix/grammage corrects
         if(mode==='mag'){
           magLines = lignes.map(function(l){
+            var ml = matchOpenAILine(l);
+            if(!ml.catMatch) unmatchedCount++;
             return {
-              ref: l.ref_frenchy||l.ref_client||'',
-              nom: l.designation||l.ref_frenchy||'',
-              couleur: l.couleur||'',
-              taille: l.taille||'',
-              grammage: l.grammage||'',
-              qty: Number(l.quantite)||1,
-              pu: Number(l.prix_unitaire)||0,
-              pe:'', desCab:'', puCab:0
+              ref: ml.ref, nom: ml.nom, couleur: ml.couleur, taille: ml.taille, grammage: ml.grammage,
+              qty: ml.qty, pu: ml.pu, pe:'', desCab: ml.nom.toUpperCase(), puCab: ml.pu
             };
           });
           if(typeof renderMagLines==='function') renderMagLines();
         } else {
           cabLines = lignes.map(function(l){
+            var ml = matchOpenAILine(l);
+            if(!ml.catMatch) unmatchedCount++;
+            var pe = ml.catMatch ? getPeData(ml.catMatch.ref, ml.catMatch.ean) : null;
             return {
-              pe: l.ref_client||l.ref_frenchy||'',
-              desCab: l.designation||'',
-              ref: l.ref_frenchy||'',
-              nom: l.designation||'',
-              couleur:'', taille:'', grammage:'',
-              qty: Number(l.quantite)||1,
-              pu:0, puCab: Number(l.prix_unitaire)||0
+              pe: pe ? pe.pe : (l.ref_client||l.ref_frenchy||''),
+              desCab: pe ? pe.des : ml.nom.toUpperCase(),
+              ref: ml.ref, nom: ml.nom, couleur: ml.couleur, taille: ml.taille, grammage: ml.grammage,
+              qty: ml.qty, pu: ml.pu, puCab: pe ? pe.pu : ml.pu
             };
           });
           if(typeof renderCabLines==='function') renderCabLines();
         }
-        if(statusEl) statusEl.textContent='✅ OpenAI : '+lignes.length+' produit(s) importé(s) avec succès !';
+        if(statusEl) statusEl.textContent='✅ OpenAI : '+lignes.length+' produit(s) importé(s)'+(unmatchedCount?' ('+unmatchedCount+' sans référence catalogue — à vérifier)':' avec succès !');
         factuRenderTotals(mode);
       } else if(data.texte_brut){
         // Pas de lignes structurées — utiliser le texte brut reformatté
