@@ -3050,6 +3050,62 @@ function autoFillCabestoFields(detected){
     if(d) d.value = detected.date;
   }
 }
+function numGrams(s){
+  var m = String(s||'').match(/(\d+(?:[.,]\d+)?)/);
+  return m ? parseFloat(m[1].replace(',','.')) : null;
+}
+function commonPrefixLen(a,b){
+  var n = Math.min(a.length,b.length), i=0;
+  while(i<n && a[i]===b[i]) i++;
+  return i;
+}
+function wordsOfSingular(s){
+  return norm(s).split(/\s+/).filter(function(w){return w.length>2;}).map(function(w){
+    return w.replace(/s$/,'');
+  });
+}
+function fuzzyWordHit(w, prodWords){
+  return prodWords.some(function(pw){
+    if(w===pw) return true;
+    var cp = commonPrefixLen(w,pw);
+    return cp>=5 && cp >= Math.min(w.length,pw.length)*0.7;
+  });
+}
+// Matching générique catalogue, indépendant des alias "leurres" (extractWanted/PROD_ALIASES) :
+// utilisé en repli pour toute famille de produits (pierres, moules, accessoires, etc.)
+// quand le matching spécialisé matchProduct() ne trouve rien.
+function matchCatalogueGeneric(l, nom){
+  if(typeof CATALOGUE === 'undefined' || !nom) return null;
+  var refFr = norm(l.ref_frenchy||'').replace(/[-_]/g,' ');
+  var wantedWords = wordsOfSingular(nom);
+  // OpenAI met parfois le grammage dans la désignation ("Pierres 45 gr") sans remplir le champ grammage
+  var wantedGram = numGrams(l.grammage);
+  if(wantedGram==null){
+    var gm = normalizeLine(nom).match(/(\d+(?:\.\d+)?)\s*g\b/);
+    if(gm) wantedGram = parseFloat(gm[1]);
+  }
+  var wantedTaille = norm(l.taille||'');
+  var wantedCouleur = norm(l.couleur||'');
+  var scored = CATALOGUE.map(function(p){
+    var refNorm = norm(p.ref).replace(/[-_]/g,' ');
+    if(refFr && refFr.length>=4 && (refNorm===refFr || refNorm.includes(refFr) || refFr.includes(refNorm))) return {p:p, s:99};
+    var prodWords = wordsOfSingular(p.produit);
+    if(!wantedWords.length || !prodWords.length) return {p:p, s:0};
+    var hits = wantedWords.filter(function(w){return fuzzyWordHit(w, prodWords);}).length;
+    if(!hits) return {p:p, s:0};
+    var pGram = numGrams(p.grammage);
+    // Grammage renseigné des deux côtés mais différent : on disqualifie (variante du mauvais poids)
+    if(wantedGram!=null && pGram!=null && Math.abs(wantedGram-pGram)>0.01) return {p:p, s:0};
+    var ratio = hits / Math.max(wantedWords.length, prodWords.length);
+    var s = ratio*5;
+    if(wantedGram!=null && pGram!=null) s += 3;
+    if(wantedTaille && norm(p.taille)===wantedTaille) s += 1;
+    if(wantedCouleur && norm(p.couleur)===wantedCouleur) s += 1;
+    return {p:p, s:s};
+  }).sort(function(a,b){return b.s-a.s;});
+  var best = scored[0];
+  return (best && best.s>=2.5) ? best.p : null;
+}
 // Rapproche une ligne brute renvoyée par OpenAI (analyse-commande) avec le catalogue local.
 // OpenAI ne connaît pas nos références/prix internes : le catalogue est toujours prioritaire
 // quand un match fiable est trouvé, sinon on retombe sur ce qu'OpenAI a extrait.
@@ -3061,6 +3117,7 @@ function matchOpenAILine(l){
   if(typeof CATALOGUE !== 'undefined' && searchLine){
     var m = matchProduct(searchLine);
     if(m && m.matched) catMatch = m.product;
+    if(!catMatch) catMatch = matchCatalogueGeneric(l, nom);
   }
   return {
     catMatch: catMatch,
