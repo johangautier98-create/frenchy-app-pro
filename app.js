@@ -2752,9 +2752,22 @@ function goToFacturationCabesto() {
   showTab('facturation');
   setTimeout(()=>showFactuTab('cabesto'),80);
 }
-function goToCommandeFromFactu() {
-  showTab('commande');
-  // Products already loaded via loadQueueToFactu or analyzeFactu
+function goToCommandeFromFactu(mode) {
+  var lines = mode==='cab' ? cabLines : magLines;
+  var missing=0;
+  (lines||[]).forEach(function(l){
+    var p=flV35GetProductFromLine(l);
+    if(p) addToQueue(p, Number(l.qty)||1);
+    else missing++;
+  });
+  if(typeof renderQueues==='function') renderQueues();
+  showTab('impression');
+  if(missing){
+    var t=document.createElement('div');
+    t.textContent='⚠️ '+missing+' ligne(s) sans référence catalogue — code-barres à imprimer manuellement.';
+    t.style.cssText='position:fixed;bottom:20px;right:20px;background:#c62828;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999;max-width:320px';
+    document.body.appendChild(t);setTimeout(function(){t.remove();},6000);
+  }
 }
 
 // ── CHARGER DEPUIS LA FILE ────────────────────────────────────────────
@@ -3605,7 +3618,9 @@ function renderMagLines(){
   if(!box) return;
   if(!magLines.length){
     box.innerHTML='<div class="factu-empty">Importez une commande ou cliquez "Passer à la facturation Magasin" depuis l\'onglet Impression.</div>';
-    const t=document.getElementById('mag-total'); if(t) t.style.display='none'; return;
+    const t=document.getElementById('mag-total'); if(t) t.style.display='none';
+    const gp=document.getElementById('mag-go-print'); if(gp) gp.classList.remove('visible');
+    return;
   }
   box.innerHTML=`<table class="factu-table" style="width:100%;min-width:980px;table-layout:auto;">
     <thead><tr>
@@ -3636,6 +3651,7 @@ function renderMagLines(){
     </tbody></table>
     <button onclick="magAddLine()" style="margin-top:10px;padding:8px 18px;background:#2d6a2d;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;">➕ Ajouter une ligne</button>`;
   factuRenderTotals('mag');
+  const gp=document.getElementById('mag-go-print'); if(gp) gp.classList.add('visible');
 }
 window.magAddLine = function(){
   magLines.push({ref:'',nom:'',couleur:'',taille:'',grammage:'',qty:1,pu:0,pe:'',desCab:'',puCab:0});
@@ -3658,7 +3674,9 @@ function renderCabLines(){
   if(!box) return;
   if(!cabLines.length){
     box.innerHTML='<div class="factu-empty">Importez une commande ou cliquez "Passer à la facturation Cabesto" depuis l\'onglet Impression.</div>';
-    const t=document.getElementById('cab-total'); if(t) t.style.display='none'; return;
+    const t=document.getElementById('cab-total'); if(t) t.style.display='none';
+    const gp=document.getElementById('cab-go-print'); if(gp) gp.classList.remove('visible');
+    return;
   }
   box.innerHTML=`<div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:1080px;table-layout:auto;">
     <thead><tr>
@@ -3686,6 +3704,7 @@ function renderCabLines(){
     </tr>`).join('')}
     </tbody></table></div>`;
   factuRenderTotals('cab');
+  const gp=document.getElementById('cab-go-print'); if(gp) gp.classList.add('visible');
 }
 window.cabMoveLine = function(i, dir){
   var j = i + dir;
