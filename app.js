@@ -2547,6 +2547,8 @@ let magLines = [];
 let cabLines = [];
 let magClient = null;
 let cabClient = null;
+let magCurrentInvoiceId = null;
+let cabCurrentInvoiceId = null;
 
 // ── NAVIGATION ────────────────────────────────────────────────────────
 function showFactuTab(name){
@@ -2674,6 +2676,7 @@ window.histoReopen = function(id){
   var f=_histoData.find(function(x){return String(x.id)===String(id);});
   if(!f){alert('Document introuvable.');return;}
   var mode=f.type_client==='cabesto'?'cab':'mag';
+  if(mode==='cab'){cabCurrentInvoiceId=f.id;}else{magCurrentInvoiceId=f.id;}
   showFactuTab(mode==='cab'?'cabesto':'magasin');
   // Remplir les champs
   var num=document.getElementById(mode+'-inv-num');
@@ -3556,8 +3559,8 @@ function factuClear(mode){
   if(ta) ta.value='';
   const st=document.getElementById((mode==='mag'?'mag':'cab')+'-import-status');
   if(st){ st.style.display='none'; st.textContent=''; }
-  if(mode==='mag'){ magLines=[]; renderMagLines(); }
-  else { cabLines=[]; renderCabLines(); }
+  if(mode==='mag'){ magLines=[]; magCurrentInvoiceId=null; renderMagLines(); }
+  else { cabLines=[]; cabCurrentInvoiceId=null; renderCabLines(); }
   const btn=document.getElementById((mode==='mag'?'mag':'cab')+'-go-print');
   if(btn) btn.classList.remove('visible');
 }
@@ -3755,8 +3758,15 @@ function printCSS(){
 async function archiveFacture(opts){
   var db=window.db;if(!db){var tn=document.createElement('div');tn.textContent='❌ Base de données non connectée — réessayez dans 2 secondes';tn.style.cssText='position:fixed;bottom:20px;right:20px;background:#c62828;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999';document.body.appendChild(tn);setTimeout(function(){tn.remove();},5000);return;}
   try{
-    var r=await db.from('factures').insert([{numero:opts.num||'',type_doc:opts.typeDoc||'facture',type_client:opts.typeClient||'magasin',client_nom:opts.clientNom||'',client_email:opts.clientEmail||'',client_adresse:opts.clientAdresse||'',date_facture:opts.date||todayISO(),ref_commande:opts.refCmd||'',montant_ht:opts.ht||0,frais_port:opts.port||0,montant_total:opts.total||0,statut_paiement:'en_attente',lignes:JSON.stringify(opts.lignes||[])}]).select();
-    if(!r.error){console.log('Facture archivee:',opts.num);var t=document.createElement('div');t.textContent='✅ Facture '+opts.num+' enregistrée !';t.style.cssText='position:fixed;bottom:20px;right:20px;background:#2e7d32;color:#fff;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:700;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3)';document.body.appendChild(t);setTimeout(function(){t.remove();},4000);if(typeof renderHistorique==='function')renderHistorique();}else{var te=document.createElement('div');te.textContent='❌ Erreur sauvegarde: '+JSON.stringify(r.error);te.style.cssText='position:fixed;bottom:20px;right:20px;background:#c62828;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999;max-width:320px';document.body.appendChild(te);setTimeout(function(){te.remove();},6000);console.error('Archive error:',r.error);}
+    var row={numero:opts.num||'',type_doc:opts.typeDoc||'facture',type_client:opts.typeClient||'magasin',client_nom:opts.clientNom||'',client_email:opts.clientEmail||'',client_adresse:opts.clientAdresse||'',date_facture:opts.date||todayISO(),ref_commande:opts.refCmd||'',montant_ht:opts.ht||0,frais_port:opts.port||0,montant_total:opts.total||0,lignes:JSON.stringify(opts.lignes||[])};
+    var r;
+    if(opts.invoiceId){
+      r=await db.from('factures').update(row).eq('id',opts.invoiceId).select();
+    }else{
+      row.statut_paiement='en_attente';
+      r=await db.from('factures').insert([row]).select();
+    }
+    if(!r.error){console.log('Facture archivee:',opts.num);var t=document.createElement('div');t.textContent='✅ Facture '+opts.num+(opts.invoiceId?' mise à jour !':' enregistrée !');t.style.cssText='position:fixed;bottom:20px;right:20px;background:#2e7d32;color:#fff;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:700;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3)';document.body.appendChild(t);setTimeout(function(){t.remove();},4000);if(typeof renderHistorique==='function')renderHistorique();}else{var te=document.createElement('div');te.textContent='❌ Erreur sauvegarde: '+JSON.stringify(r.error);te.style.cssText='position:fixed;bottom:20px;right:20px;background:#c62828;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999;max-width:320px';document.body.appendChild(te);setTimeout(function(){te.remove();},6000);console.error('Archive error:',r.error);}
   }catch(e){console.warn('Archive:',e);var te2=document.createElement('div');te2.textContent='❌ Erreur: '+e.message;te2.style.cssText='position:fixed;bottom:20px;right:20px;background:#c62828;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999';document.body.appendChild(te2);setTimeout(function(){te2.remove();},6000);}
 }
 
@@ -3897,7 +3907,7 @@ function flV35GetProductFromLine(l){if(!l)return null;if(l.ref&&typeof CATALOGUE
 function flV35SyncFactuToCommandes(mode, lines, existingResults){const results=[];(existingResults||[]).forEach(r=>{if(r&&r.matched&&r.product)results.push(r);});(lines||[]).forEach(l=>{const p=flV35GetProductFromLine(l);if(!p)return;if(results.some(r=>r.product&&r.product.ref===p.ref))return;results.push({matched:true,product:p,qty:parseInt(l.qty)||1,line:(mode==='cab'?(l.pe||l.ref||'')+' '+(l.desCab||l.nom||''):(l.ref||'')+' '+(l.nom||''))});});if(results.length){orderResults=results;try{renderOrderResults();}catch(e){console.warn('V35 render commandes',e);}const tab=document.getElementById('tab-commande');if(tab){tab.classList.add('fl-v35-pulse');setTimeout(()=>tab.classList.remove('fl-v35-pulse'),3500);}const st=document.getElementById((mode==='mag'?'mag':'cab')+'-import-status');if(st)st.textContent+=' — codes-barres préparés dans Commandes';}}
 
 function magPrint(t){const h=magGenDoc(t);if(!h)return;const w=window.open('','_blank');w.document.open();w.document.write(h);w.document.close();_magArchive(t);}
-function _magArchive(t){try{var c=magClient||{name:(document.getElementById('mag-client-sel')||{options:[{text:''}]}).options[(document.getElementById('mag-client-sel')||{selectedIndex:0}).selectedIndex]?.text||'Magasin non sélectionné',email:'',address:''};var num=(document.getElementById('mag-inv-num')||{}).value||'';var date=(document.getElementById('mag-inv-date')||{}).value||todayISO();var oref=(document.getElementById('mag-order-ref')||{}).value||'';var port=parseFloat((document.getElementById('mag-port')||{value:0}).value)||0;var remisePct=parseFloat((document.getElementById('mag-remise')||{value:0}).value)||0;var ht=magLines.reduce(function(s,l){return s+Number(l.qty)*Number(l.pu);},0);var remiseMt=ht*remisePct/100;var total=ht-remiseMt+port;archiveFacture({num:num,typeDoc:t==='delivery'?'bon_livraison':'facture',typeClient:'magasin',clientNom:c.name||'',clientEmail:c.email||'',clientAdresse:(c.address||'').replace(/\n/g,' '),date:date,refCmd:oref,ht:ht,port:port,remisePct:remisePct,remiseMt:remiseMt,total:total,lignes:magLines.map(function(l){return{ref:l.ref,nom:l.nom,couleur:l.couleur,taille:l.taille,grammage:l.grammage,qty:l.qty,pu:l.pu};})});}catch(e){console.warn(e);}}
+function _magArchive(t){try{var c=magClient||{name:(document.getElementById('mag-client-sel')||{options:[{text:''}]}).options[(document.getElementById('mag-client-sel')||{selectedIndex:0}).selectedIndex]?.text||'Magasin non sélectionné',email:'',address:''};var num=(document.getElementById('mag-inv-num')||{}).value||'';var date=(document.getElementById('mag-inv-date')||{}).value||todayISO();var oref=(document.getElementById('mag-order-ref')||{}).value||'';var port=parseFloat((document.getElementById('mag-port')||{value:0}).value)||0;var remisePct=parseFloat((document.getElementById('mag-remise')||{value:0}).value)||0;var ht=magLines.reduce(function(s,l){return s+Number(l.qty)*Number(l.pu);},0);var remiseMt=ht*remisePct/100;var total=ht-remiseMt+port;archiveFacture({invoiceId:magCurrentInvoiceId,num:num,typeDoc:t==='delivery'?'bon_livraison':'facture',typeClient:'magasin',clientNom:c.name||'',clientEmail:c.email||'',clientAdresse:(c.address||'').replace(/\n/g,' '),date:date,refCmd:oref,ht:ht,port:port,remisePct:remisePct,remiseMt:remiseMt,total:total,lignes:magLines.map(function(l){return{ref:l.ref,nom:l.nom,couleur:l.couleur,taille:l.taille,grammage:l.grammage,qty:l.qty,pu:l.pu};})});}catch(e){console.warn(e);}}
 function magDownload(t){
   const h=magGenDoc(t); if(!h) return;
   const num=(document.getElementById('mag-inv-num')||{}).value||'FL-2026-001';
@@ -4031,7 +4041,7 @@ function cabExportPackingListe(){
 }
 
 function cabPrint(t){const h=cabGenDoc(t);if(!h)return;const w=window.open('','_blank');w.document.open();w.document.write(h);w.document.close();_cabArchive(t);}
-function _cabArchive(t){try{var c=cabClient;if(!c)return;var num=(document.getElementById('cab-inv-num')||{}).value||'';var date=(document.getElementById('cab-inv-date')||{}).value||todayISO();var comf=(document.getElementById('cab-order-ref')||{}).value||'';var port=parseFloat((document.getElementById('cab-port')||{value:0}).value)||0;var remisePct=parseFloat((document.getElementById('cab-remise')||{value:0}).value)||0;var ht=cabLines.reduce(function(s,l){return s+Number(l.qty)*Number(l.puCab);},0);var remiseMt=ht*remisePct/100;var total=ht-remiseMt+port;archiveFacture({num:num,typeDoc:t==='delivery'?'bon_livraison':'facture',typeClient:'cabesto',clientNom:c.name||'',clientEmail:c.email||'',clientAdresse:(c.address||'').replace(/\n/g,' '),date:date,refCmd:comf,ht:ht,port:port,remisePct:remisePct,remiseMt:remiseMt,total:total,lignes:cabLines.map(function(l){return{ref:l.pe||l.ref,nom:l.desCab||l.nom,qty:l.qty,pu:l.puCab};})});}catch(e){console.warn(e);}}
+function _cabArchive(t){try{var c=cabClient;if(!c)return;var num=(document.getElementById('cab-inv-num')||{}).value||'';var date=(document.getElementById('cab-inv-date')||{}).value||todayISO();var comf=(document.getElementById('cab-order-ref')||{}).value||'';var port=parseFloat((document.getElementById('cab-port')||{value:0}).value)||0;var remisePct=parseFloat((document.getElementById('cab-remise')||{value:0}).value)||0;var ht=cabLines.reduce(function(s,l){return s+Number(l.qty)*Number(l.puCab);},0);var remiseMt=ht*remisePct/100;var total=ht-remiseMt+port;archiveFacture({invoiceId:cabCurrentInvoiceId,num:num,typeDoc:t==='delivery'?'bon_livraison':'facture',typeClient:'cabesto',clientNom:c.name||'',clientEmail:c.email||'',clientAdresse:(c.address||'').replace(/\n/g,' '),date:date,refCmd:comf,ht:ht,port:port,remisePct:remisePct,remiseMt:remiseMt,total:total,lignes:cabLines.map(function(l){return{ref:l.pe||l.ref,nom:l.desCab||l.nom,qty:l.qty,pu:l.puCab};})});}catch(e){console.warn(e);}}
 function cabDownload(t){
   const h=cabGenDoc(t); if(!h) return;
   const num=(document.getElementById('cab-inv-num')||{}).value||'FL-2026-001';
