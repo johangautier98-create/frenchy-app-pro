@@ -19,7 +19,8 @@ module.exports = async function handler(req, res) {
     const prompt = `Extrais TOUTES les lignes produits de ce document (facture, bon de commande, email, SMS, photo).
 Retourne UNIQUEMENT ce JSON valide :
 {"ref_commande":"","date_commande":"","magasin":"","numero_facture":"","lignes":[{"ref_frenchy":"","designation":"","couleur":"","taille":"","grammage":"","quantite":1,"prix_unitaire":0}],"frais_port":0,"total_ht":0}
-Extrais TOUTES les lignes sans exception. Pour chaque ligne produit visible, crée une entrée dans "lignes".`;
+Extrais TOUTES les lignes sans exception. Pour chaque ligne produit visible, crée une entrée dans "lignes".
+Si le client demande plusieurs tailles/formats d'un même produit sans tout détailler (ex: "Kaki, 10 par taille, les 4 tailles", "toutes les tailles", "tous les formats"), NE CHOISIS PAS une taille au hasard : recopie l'expression exacte du client dans le champ "taille" (ex: "les 4 tailles", "toutes les tailles") et mets dans "quantite" la quantité demandée PAR taille.`;
 
     let messages;
     const isPdf = /application\/pdf/i.test(mime) || /\.pdf$/i.test(filename);

@@ -3134,6 +3134,18 @@ function matchOpenAILine(l){
     var m = matchProduct(searchLine);
     if(m && m.matched) catMatch = m.product;
     if(!catMatch) catMatch = matchCatalogueGeneric(l, nom);
+    // matchProduct() (logique "leurres") ne filtre pas toujours strictement sur la couleur :
+    // si une variante du même produit/taille existe dans la couleur exacte demandée, on la préfère.
+    if(catMatch && l.couleur){
+      var wantedC = norm(l.couleur).replace(/kh/g,'k');
+      if(norm(catMatch.couleur||'').replace(/kh/g,'k') !== wantedC){
+        var exact = CATALOGUE.find(function(p){
+          return p.produit===catMatch.produit && p.taille===catMatch.taille &&
+            norm(p.couleur||'').replace(/kh/g,'k')===wantedC;
+        });
+        if(exact) catMatch = exact;
+      }
+    }
   }
   return {
     catMatch: catMatch,
@@ -3145,6 +3157,41 @@ function matchOpenAILine(l){
     qty: qty,
     pu: (catMatch && Number(catMatch.ht)) ? Number(catMatch.ht) : (parseFloat(l.prix_unitaire)||0)
   };
+}
+// Quand le client demande plusieurs tailles d'un même produit sans tout détailler
+// (ex: "Kaki, 10 par taille, les 4 tailles" ou "toutes les tailles"), OpenAI renvoie une
+// seule ligne ambiguë. On éclate ici cette ligne en une ligne par taille réellement
+// disponible au catalogue pour ce produit/couleur, en gardant la même quantité sur chacune.
+function expandAmbiguousSizeLines(lignes){
+  if(typeof CATALOGUE === 'undefined') return lignes||[];
+  var multiSizeRe = /toutes?\s+les\s+tailles|tous\s+les\s+formats|\d+\s*tailles?|chaque\s+taille|chaque\s+format/i;
+  var out = [];
+  (lignes||[]).forEach(function(l){
+    var hay = [l.taille, l.designation].filter(Boolean).join(' ');
+    if(!multiSizeRe.test(hay)){ out.push(l); return; }
+    var nom = l.designation || l.ref_frenchy || l.ref_client || '';
+    var wantedWords = wordsOfSingular(nom);
+    // "kh" -> "k" tolère les variantes d'orthographe courantes (kaki/khaki)
+    var wantedCouleur = norm(l.couleur||'').replace(/kh/g,'k');
+    if(!wantedWords.length){ out.push(l); return; }
+    var tailles = [];
+    CATALOGUE.forEach(function(p){
+      var prodWords = wordsOfSingular(p.produit);
+      if(!prodWords.length) return;
+      var hits = wantedWords.filter(function(w){return fuzzyWordHit(w, prodWords);}).length;
+      if(!hits) return;
+      if(wantedCouleur && norm(p.couleur).replace(/kh/g,'k')!==wantedCouleur) return;
+      var t = p.taille||'';
+      if(t && tailles.indexOf(t)===-1) tailles.push(t);
+    });
+    if(tailles.length<2){ out.push(l); return; }
+    tailles.forEach(function(t){
+      var copy={}; for(var k in l) copy[k]=l[k];
+      copy.taille=t;
+      out.push(copy);
+    });
+  });
+  return out;
 }
 async function handleFactuFile(file,mode){
   const statusEl=document.getElementById((mode==='mag'?'mag':'cab')+'-import-status');
@@ -3422,7 +3469,7 @@ window.factuAnalyzeIA = async function(mode){
         if(portEl && !parseFloat(portEl.value)) portEl.value = data.frais_port;
       }
 
-      var lignes = data.lignes || [];
+      var lignes = expandAmbiguousSizeLines(data.lignes || []);
       if(lignes.length > 0){
         var unmatchedCount = 0;
         // Rapproche chaque ligne OpenAI avec le catalogue local pour récupérer ref/prix/grammage corrects
