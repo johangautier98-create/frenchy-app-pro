@@ -2436,6 +2436,23 @@ const RAW = [
   ["M2M50","Moule de Marseille","Leurre spécial sparidé","","","","Blister 2 pièces",3.18,7.90,"0710535116472",0],
   ["M2M100","Moule de Marseille","Leurre spécial sparidé","","","","Blister 2 pièces",2.96,7.90,"0710535116472",0],
   ["M2M500","Moule de Marseille","Leurre spécial sparidé","","","","Blister 2 pièces",2.75,7.90,"0710535116472",0],
+  // RAVAGER Tuna — pêche au thon (ajout 24/06/2026)
+  ["T1-R-79-B","RAVAGER Tuna","Leurre souple","Bleu","79 mm","35 g","Combo (TP + corps + corps de rechange + glue offerte)",8.5,17.9,"7864179703567",0],
+  ["T1-R-79-R","RAVAGER Tuna","Leurre souple","Rose","79 mm","35 g","Combo (TP + corps + corps de rechange + glue offerte)",8.5,17.9,"7864179699327",0],
+  ["T1-R-79-BV","RAVAGER Tuna","Leurre souple","Bleu / Violet","79 mm","35 g","Combo (TP + corps + corps de rechange + glue offerte)",8.5,17.9,"7864179740418",0],
+  ["T1-R-79-K","RAVAGER Tuna","Leurre souple","Khaki","79 mm","35 g","Combo (TP + corps + corps de rechange + glue offerte)",8.5,17.9,"7864179697392",0],
+  ["T2-R-89-B","RAVAGER Tuna","Leurre souple","Bleu","89 mm","42 g","Combo (TP + corps + corps de rechange + glue offerte)",8.9,19.9,"7864179506793",0],
+  ["T2-R-89-R","RAVAGER Tuna","Leurre souple","Rose","89 mm","42 g","Combo (TP + corps + corps de rechange + glue offerte)",8.9,19.9,"7864179497404",0],
+  ["T2-R-89-BV","RAVAGER Tuna","Leurre souple","Bleu / Violet","89 mm","42 g","Combo (TP + corps + corps de rechange + glue offerte)",8.9,19.9,"7864179706674",0],
+  ["T2-R-89-K","RAVAGER Tuna","Leurre souple","Khaki","89 mm","42 g","Combo (TP + corps + corps de rechange + glue offerte)",8.9,19.9,"7864179705448",0],
+  ["T3-R-105-B","RAVAGER Tuna","Leurre souple","Bleu","105 mm","54 g","Combo (TP + corps + corps de rechange + glue offerte)",9.9,21.9,"7864179728720",0],
+  ["T3-R-105-R","RAVAGER Tuna","Leurre souple","Rose","105 mm","54 g","Combo (TP + corps + corps de rechange + glue offerte)",9.9,21.9,"7864179715683",0],
+  ["T3-R-105-BV","RAVAGER Tuna","Leurre souple","Bleu / Violet","105 mm","54 g","Combo (TP + corps + corps de rechange + glue offerte)",9.9,21.9,"7864179714136",0],
+  ["T3-R-105-K","RAVAGER Tuna","Leurre souple","Khaki","105 mm","54 g","Combo (TP + corps + corps de rechange + glue offerte)",9.9,21.9,"7864179510172",0],
+  ["T4-R-125-B","RAVAGER Tuna","Leurre souple","Bleu","125 mm","67 g","Combo (TP + corps + corps de rechange + glue offerte)",10.9,23.9,"7864181333059",0],
+  ["T4-R-125-R","RAVAGER Tuna","Leurre souple","Rose","125 mm","67 g","Combo (TP + corps + corps de rechange + glue offerte)",10.9,23.9,"7864181328338",0],
+  ["T4-R-125-BV","RAVAGER Tuna","Leurre souple","Bleu / Violet","125 mm","67 g","Combo (TP + corps + corps de rechange + glue offerte)",10.9,23.9,"7864181315628",0],
+  ["T4-R-125-K","RAVAGER Tuna","Leurre souple","Khaki","125 mm","67 g","Combo (TP + corps + corps de rechange + glue offerte)",10.9,23.9,"7864179455565",0],
 ];
 
 // Convertit le tableau brut en objets utilisables
