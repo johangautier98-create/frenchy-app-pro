@@ -3435,10 +3435,6 @@ window.factuAnalyzeIA = async function(mode){
 
   if(statusEl){ statusEl.style.display='block'; statusEl.textContent='🤖 OpenAI analyse le texte…'; }
 
-  // Vider les lignes existantes
-  if(mode==='cab'){ cabLines=[]; if(typeof renderCabLines==='function') renderCabLines(); }
-  if(mode==='mag'){ magLines=[]; if(typeof renderMagLines==='function') renderMagLines(); }
-
   try{
     var resp = await fetch('/api/analyse-commande',{
       method:'POST',
@@ -3474,7 +3470,7 @@ window.factuAnalyzeIA = async function(mode){
         var unmatchedCount = 0;
         // Rapproche chaque ligne OpenAI avec le catalogue local pour récupérer ref/prix/grammage corrects
         if(mode==='mag'){
-          magLines = lignes.map(function(l){
+          var newMagLines = lignes.map(function(l){
             var ml = matchOpenAILine(l);
             if(!ml.catMatch) unmatchedCount++;
             return {
@@ -3482,9 +3478,10 @@ window.factuAnalyzeIA = async function(mode){
               qty: ml.qty, pu: ml.pu, pe:'', desCab: ml.nom.toUpperCase(), puCab: ml.pu
             };
           });
+          magLines = magLines.concat(newMagLines);
           if(typeof renderMagLines==='function') renderMagLines();
         } else {
-          cabLines = lignes.map(function(l){
+          var newCabLines = lignes.map(function(l){
             var ml = matchOpenAILine(l);
             if(!ml.catMatch) unmatchedCount++;
             var pe = ml.catMatch ? getPeData(ml.catMatch.ref, ml.catMatch.ean) : null;
@@ -3495,9 +3492,12 @@ window.factuAnalyzeIA = async function(mode){
               qty: ml.qty, pu: ml.pu, puCab: pe ? pe.pu : ml.pu
             };
           });
+          cabLines = cabLines.concat(newCabLines);
           if(typeof renderCabLines==='function') renderCabLines();
         }
-        if(statusEl) statusEl.textContent='✅ OpenAI : '+lignes.length+' produit(s) importé(s)'+(unmatchedCount?' ('+unmatchedCount+' sans référence catalogue — à vérifier)':' avec succès !');
+        if(statusEl) statusEl.textContent='✅ OpenAI : '+lignes.length+' produit(s) ajouté(s)'+(unmatchedCount?' ('+unmatchedCount+' sans référence catalogue — à vérifier)':' avec succès !');
+        var iaTa=document.getElementById((mode==='mag'?'mag':'cab')+'-import-text');
+        if(iaTa) iaTa.value='';
         factuRenderTotals(mode);
       } else if(data.texte_brut){
         // Pas de lignes structurées — utiliser le texte brut reformatté
@@ -3553,7 +3553,7 @@ function factuAnalyze(mode){
     // Auto-detect store from text
     const detected = detectCabestoStore(text);
     autoFillCabestoFields(detected);
-    cabLines = lines;
+    cabLines = cabLines.concat(lines);
     renderCabLines();
   } else {
     // Magasin mode — use parseOrderText from app.js
@@ -3599,7 +3599,7 @@ function factuAnalyze(mode){
         puCab:pe?pe.pu:Number(p.ht)||0,
       };
     });
-    magLines = lines;
+    magLines = magLines.concat(lines);
     renderMagLines();
   }
 
@@ -3610,7 +3610,9 @@ function factuAnalyze(mode){
   const btn=document.getElementById((mode==='mag'?'mag':'cab')+'-go-print');
   if(btn) btn.classList.add('visible');
   const st=document.getElementById((mode==='mag'?'mag':'cab')+'-import-status');
-  if(st) st.textContent=`✅ ${lines.length} produit(s) reconnu(s) — facture prête`;
+  if(st) st.textContent=`✅ ${lines.length} produit(s) ajouté(s) — facture mise à jour`;
+  const ta=document.getElementById((mode==='mag'?'mag':'cab')+'-import-text');
+  if(ta) ta.value='';
   flV35SyncFactuToCommandes(mode, lines, orderRes);
 }
 
