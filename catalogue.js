@@ -2460,7 +2460,8 @@ const RAW = [
 const CATALOGUE = RAW.map(r=>({
   ref:r[0],produit:r[1],famille:r[2],couleur:r[3],taille:r[4],
   grammage:r[5],cond:r[6],ht:r[7],pvc:r[8],ean:r[9],ronde:!!r[10],
-  format: (['Super Anguillon','Anguillon Vibrant','Anguillon'].includes(r[1]) ? '50x40' : '40x30')
+  format: (['Super Anguillon','Anguillon Vibrant','Anguillon'].includes(r[1]) ? '50x40' : '40x30'),
+  roundOnly: r[0]==='ACC-GLUE-SIL-3'
 }));
 
 window.CATALOGUE = CATALOGUE;

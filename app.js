@@ -575,7 +575,7 @@ function addOneToQueueArray(queue, product, qty){
 function addToQueue(product,qty){
   // V7 — règle atelier : un Rouget produit le code-barres rectangulaire ET la ronde.
   const safeQty=Math.max(1, parseInt(qty,10)||1);
-  addOneToQueueArray(queueRect, product, safeQty);
+  if(!product.roundOnly) addOneToQueueArray(queueRect, product, safeQty);
   if(product.ronde) addOneToQueueArray(queueRound, product, safeQty);
   saveState();
   updateQueueIndicator();
@@ -1886,7 +1886,7 @@ function quickAddFromCatalogue(ref){
 
 function addToQueue(product,qty){
   const safeQty=Math.max(1, parseInt(qty,10)||1);
-  addOneToQueueArray(queueRect, product, safeQty);
+  if(!product.roundOnly) addOneToQueueArray(queueRect, product, safeQty);
   if(product.ronde) addOneToQueueArray(queueRound, product, safeQty);
   saveState();
   updateQueueIndicator();
