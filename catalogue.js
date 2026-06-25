@@ -2453,7 +2453,7 @@ const RAW = [
   ["T4-R-125-R","RAVAGER Tuna","Leurre souple","Rose","125 mm","67 g","Combo (TP + corps + corps de rechange + glue offerte)",10.9,23.9,"7864181328338",0],
   ["T4-R-125-BV","RAVAGER Tuna","Leurre souple","Bleu / Violet","125 mm","67 g","Combo (TP + corps + corps de rechange + glue offerte)",10.9,23.9,"7864181315628",0],
   ["T4-R-125-K","RAVAGER Tuna","Leurre souple","Khaki","125 mm","67 g","Combo (TP + corps + corps de rechange + glue offerte)",10.9,23.9,"7864179455565",0],
-  ["ACC-GLUE-SIL-3","Super Glue","Accessoire","","Special Silicone","3 ml","x1",0,0,"",0],
+  ["ACC-GLUE-SIL-3","Super Glue","Accessoire","","SUPER GLUE","SPECIAL SILICONE 3ML","x1",0,0,"",1],
 ];
 
 // Convertit le tableau brut en objets utilisables
