@@ -42,9 +42,9 @@ module.exports = async function handler(req, res) {
     return res.status(500).type('text/plain').send('BLOG_API_CLIENT_ID et BLOG_API_CLIENT_SECRET manquants dans Vercel.');
   }
 
-  // Vérification HMAC Shopify (évite les requêtes forgées)
-  if (hmac && !verifyShopifyHmac(req.query, clientSecret)) {
-    return res.status(403).type('text/plain').send('Signature HMAC invalide.');
+  // Vérification HMAC Shopify obligatoire — rejette toute requête non signée par Shopify
+  if (!hmac || !verifyShopifyHmac(req.query, clientSecret)) {
+    return res.status(403).type('text/plain').send('Signature HMAC invalide ou absente.');
   }
 
   try {
