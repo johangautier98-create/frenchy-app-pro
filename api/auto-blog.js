@@ -25,6 +25,7 @@ const SHOPS = {
     tokenEnv:    'SHOPIFY_FL_TOKEN',
     blogIdEnv:   'FL_BLOG_ID',
     blogHandle:  'infos',
+    darkTheme:   false, // thème clair — texte noir sur fond blanc
   },
   ravager: {
     catalog:     CATALOG_RAVAGER,
@@ -32,6 +33,7 @@ const SHOPS = {
     tokenEnv:    'SHOPIFY_RAVAGER_CONTENT_TOKEN',
     blogIdEnv:   'RAVAGER_BLOG_ID',
     blogHandle:  'news',
+    darkTheme:   true,  // thème sombre — texte forcé en blanc
   }
 };
 
@@ -459,7 +461,19 @@ async function runForShop(shopKey) {
 
   // 4. Rédiger l'article (SEO world-class)
   console.log(`[${cat.marque}] Rédaction SEO world-class...`);
-  const { seoTitle, metaDesc, bodyHtml } = await writeArticle(shopKey, subject, searchResults);
+  const { seoTitle, metaDesc, bodyHtml: rawBodyHtml } = await writeArticle(shopKey, subject, searchResults);
+
+  // Correction couleur texte pour thèmes sombres (fond noir → texte blanc)
+  // Injecté en tête du body_html via <style> — fonctionne car envoyé via API, pas via l'éditeur riche
+  const darkThemeStyle = shop.darkTheme
+    ? `<style>
+h1,h2,h3,h4,h5,h6,p,li,blockquote,strong,em,ol,ul{color:#ffffff !important;}
+a{color:#88ccff !important;text-decoration:underline;}
+blockquote{border-left:3px solid #ffffff;padding-left:1em;opacity:0.85;}
+</style>\n`
+    : '';
+  const bodyHtml = darkThemeStyle + rawBodyHtml;
+
   console.log(`[${cat.marque}] Article rédigé (${bodyHtml.length} chars) — SEO title: "${seoTitle}"`);
 
   // 5. Récupérer l'image produit
