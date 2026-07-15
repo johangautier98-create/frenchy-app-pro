@@ -950,19 +950,28 @@ function printNextLabels(type){
 }
 function printAll(){ printQueue('rect'); }
 function openPrintWindow(body,size){
-  const win=window.open('','_blank');
-  if(!win){ alert('Le navigateur a bloque la fenetre d impression. Autorisez les popups pour ce fichier.'); return; }
-  win.document.open();
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>Impression etiquettes Frenchy Leurres</title>
 <style>
 @page{size:${size.w} ${size.h};margin:0;}
-html,body{margin:0!important;padding:0!important;background:#fff;width:${size.w};}
+html,body{margin:0!important;padding:0!important;background:#fff;width:${size.w};height:${size.h};}
 *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 </style>
-</head><body>${body}</body></html>`);
-  win.document.close();
-  setTimeout(function(){ try{ win.print(); }catch(e){} }, 800);
+</head><body>${body}</body></html>`;
+  // Blob URL — Chrome applique @page (margin:0, taille) sur blob: mais pas sur about:blank
+  let blobUrl=null;
+  try{ blobUrl=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'})); }catch(e){}
+  if(blobUrl){
+    const win=window.open(blobUrl,'_blank');
+    if(!win){ alert('Le navigateur a bloque la fenetre d impression. Autorisez les popups pour ce fichier.'); URL.revokeObjectURL(blobUrl); return; }
+    setTimeout(function(){ try{ win.print(); }catch(e){} setTimeout(function(){ try{ URL.revokeObjectURL(blobUrl); }catch(e){} },5000); },800);
+  } else {
+    // Fallback si Blob indisponible
+    const win=window.open('','_blank');
+    if(!win){ alert('Le navigateur a bloque la fenetre d impression. Autorisez les popups pour ce fichier.'); return; }
+    win.document.open(); win.document.write(html); win.document.close();
+    setTimeout(function(){ try{ win.print(); }catch(e){} },800);
+  }
 }
 document.addEventListener('DOMContentLoaded', bindPrintSettingsUI);
 const formatRectEl=document.getElementById('format-rect');
