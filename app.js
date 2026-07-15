@@ -3684,18 +3684,18 @@ function renderMagLines(){
     const gp=document.getElementById('mag-go-print'); if(gp) gp.classList.remove('visible');
     return;
   }
-  box.innerHTML=`<div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:560px;table-layout:fixed;">
+  box.innerHTML=`<div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:480px;table-layout:fixed;">
     <colgroup>
-      <col style="width:22px">
-      <col style="width:90px">
-      <col>
-      <col style="width:68px">
-      <col style="width:50px">
-      <col style="width:60px">
-      <col style="width:52px">
-      <col style="width:72px">
+      <col style="width:20px">
       <col style="width:80px">
-      <col style="width:26px">
+      <col>
+      <col style="width:52px">
+      <col style="width:36px">
+      <col style="width:42px">
+      <col style="width:34px">
+      <col style="width:50px">
+      <col style="width:58px">
+      <col style="width:22px">
     </colgroup>
     <thead><tr>
       <th style="padding:4px 0;"></th>
@@ -3759,20 +3759,20 @@ function renderCabLines(){
     const gp=document.getElementById('cab-go-print'); if(gp) gp.classList.remove('visible');
     return;
   }
-  box.innerHTML=`<div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:480px;table-layout:fixed;">
+  box.innerHTML=`<div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:400px;table-layout:fixed;">
     <colgroup>
-      <col style="width:22px">
-      <col style="width:58px">
+      <col style="width:20px">
+      <col style="width:54px">
       <col>
-      <col style="width:52px">
-      <col style="width:62px">
-      <col style="width:80px">
-      <col style="width:26px">
+      <col style="width:34px">
+      <col style="width:46px">
+      <col style="width:56px">
+      <col style="width:22px">
     </colgroup>
     <thead><tr>
       <th style="padding:4px 0;"></th>
       <th style="font-size:10px;">Réf. PE</th>
-      <th>Désignation Cabesto</th>
+      <th style="font-size:11px;font-weight:800;">Désignation Cabesto</th>
       <th class="r" style="font-size:10px;">Qté</th>
       <th class="r" style="font-size:10px;">PU HT&nbsp;€</th>
       <th class="r" style="font-size:10px;">Montant&nbsp;€</th>
