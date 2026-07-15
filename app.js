@@ -789,7 +789,7 @@ function renderQueueSummary(){
 // ═══════════════════════════════════════════════════════
 const DEFAULT_PRINT_SETTINGS = {
   rectW: 40, rectH: 30, rectPad: 1.2,
-  bcWidth: 2.4, bcHeight: 62,
+  bcWidth: 2.4, bcHeight: 62, bcFont: 9,
   titleFont: 13, infoFont: 13, refFont: 9,
   roundDiam: 15, roundGap: 2, roundTitle: 9, roundSub: 8
 };
@@ -811,7 +811,7 @@ function loadPrintSettings(){
 function savePrintSettings(){
   printSettings={
     rectW:num('set-rect-w',40), rectH:num('set-rect-h',30), rectPad:num('set-rect-pad',1.2),
-    bcWidth:num('set-bc-width',2.4), bcHeight:num('set-bc-height',62),
+    bcWidth:num('set-bc-width',2.4), bcHeight:num('set-bc-height',62), bcFont:num('set-bc-font',9),
     titleFont:num('set-title-font',13), infoFont:num('set-info-font',13), refFont:num('set-ref-font',9),
     roundDiam:num('set-round-diam',15), roundGap:num('set-round-gap',2),
     roundTitle:num('set-round-title',9), roundSub:num('set-round-sub',8)
@@ -821,7 +821,7 @@ function savePrintSettings(){
 }
 function syncPrintSettingsToUI(){
   const map={
-    'set-rect-w':'rectW','set-rect-h':'rectH','set-rect-pad':'rectPad','set-bc-width':'bcWidth','set-bc-height':'bcHeight',
+    'set-rect-w':'rectW','set-rect-h':'rectH','set-rect-pad':'rectPad','set-bc-width':'bcWidth','set-bc-height':'bcHeight','set-bc-font':'bcFont',
     'set-title-font':'titleFont','set-info-font':'infoFont','set-ref-font':'refFont','set-round-diam':'roundDiam','set-round-gap':'roundGap',
     'set-round-title':'roundTitle','set-round-sub':'roundSub'
   };
@@ -840,7 +840,7 @@ function resetPrintSettings(){
   savePrintSettings();
 }
 function bindPrintSettingsUI(){
-  ['set-rect-w','set-rect-h','set-rect-pad','set-bc-width','set-bc-height','set-title-font','set-info-font','set-ref-font','set-round-diam','set-round-gap','set-round-title','set-round-sub'].forEach(id=>{
+  ['set-rect-w','set-rect-h','set-rect-pad','set-bc-width','set-bc-height','set-bc-font','set-title-font','set-info-font','set-ref-font','set-round-diam','set-round-gap','set-round-title','set-round-sub'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.addEventListener('input', savePrintSettings);
   });
@@ -863,7 +863,7 @@ function getPaperDims(){ return [printSettings.rectW, printSettings.rectH]; }
 function getRoundDiam(){ return printSettings.roundDiam || 15; }
 function makeBarcodeDataURL(ean){
   const c=document.createElement('canvas');
-  drawEAN13(c,ean,{mw:printSettings.bcWidth,bh:printSettings.bcHeight,fs:Math.max(8,printSettings.refFont)});
+  drawEAN13(c,ean,{mw:printSettings.bcWidth,bh:printSettings.bcHeight,fs:Math.max(6,printSettings.bcFont||9)});
   return c.toDataURL();
 }
 function safeTxt(v){ return String(v||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
@@ -952,6 +952,7 @@ function printAll(){ printQueue('rect'); }
 function openPrintWindow(body,size){
   const win=window.open('','_blank');
   if(!win){ alert('Le navigateur a bloque la fenetre d impression. Autorisez les popups pour ce fichier.'); return; }
+  win.document.open();
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>Impression etiquettes Frenchy Leurres</title>
 <style>
@@ -959,8 +960,9 @@ function openPrintWindow(body,size){
 html,body{margin:0!important;padding:0!important;background:#fff;width:${size.w};}
 *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 </style>
-</head><body>${body}<script>window.onload=function(){setTimeout(function(){window.print();},500);};<\/script></body></html>`);
+</head><body>${body}</body></html>`);
   win.document.close();
+  setTimeout(function(){ try{ win.print(); }catch(e){} }, 800);
 }
 document.addEventListener('DOMContentLoaded', bindPrintSettingsUI);
 const formatRectEl=document.getElementById('format-rect');
@@ -1895,7 +1897,7 @@ function addToQueue(product,qty){
 
 const DEFAULT_PRINT_SETTINGS_V15 = {
   rectW: 40, rectH: 30, rectPad: 1.2,
-  bcWidth: 2.4, bcHeight: 62,
+  bcWidth: 2.4, bcHeight: 62, bcFont: 9,
   titleFont: 13, infoFont: 13, refFont: 9,
   roundDiam: 15, roundGap: 2, roundGapY: 2, roundTitle: 9, roundSub: 8
 };
@@ -1909,7 +1911,7 @@ function savePrintSettings(){
   ensureV15Settings();
   printSettings={
     rectW:num('set-rect-w',40), rectH:num('set-rect-h',30), rectPad:num('set-rect-pad',1.2),
-    bcWidth:num('set-bc-width',2.4), bcHeight:num('set-bc-height',62),
+    bcWidth:num('set-bc-width',2.4), bcHeight:num('set-bc-height',62), bcFont:num('set-bc-font',9),
     titleFont:num('set-title-font',13), infoFont:num('set-info-font',13), refFont:num('set-ref-font',9),
     roundDiam:num('set-round-diam',15), roundGap:num('set-round-gap',2), roundGapY:num('set-round-gap-y',2),
     roundTitle:num('set-round-title',9), roundSub:num('set-round-sub',8)
@@ -1921,7 +1923,7 @@ function savePrintSettings(){
 function syncPrintSettingsToUI(){
   ensureV15Settings();
   const map={
-    'set-rect-w':'rectW','set-rect-h':'rectH','set-rect-pad':'rectPad','set-bc-width':'bcWidth','set-bc-height':'bcHeight',
+    'set-rect-w':'rectW','set-rect-h':'rectH','set-rect-pad':'rectPad','set-bc-width':'bcWidth','set-bc-height':'bcHeight','set-bc-font':'bcFont',
     'set-title-font':'titleFont','set-info-font':'infoFont','set-ref-font':'refFont','set-round-diam':'roundDiam','set-round-gap':'roundGap',
     'set-round-gap-y':'roundGapY','set-round-title':'roundTitle','set-round-sub':'roundSub'
   };
@@ -1951,7 +1953,7 @@ function resetPrintSettings(){
 }
 
 function bindPrintSettingsUI(){
-  ['set-rect-w','set-rect-h','set-rect-pad','set-bc-width','set-bc-height','set-title-font','set-info-font','set-ref-font','set-round-diam','set-round-gap','set-round-gap-y','set-round-title','set-round-sub'].forEach(id=>{
+  ['set-rect-w','set-rect-h','set-rect-pad','set-bc-width','set-bc-height','set-bc-font','set-title-font','set-info-font','set-ref-font','set-round-diam','set-round-gap','set-round-gap-y','set-round-title','set-round-sub'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.addEventListener('input', savePrintSettings);
   });
