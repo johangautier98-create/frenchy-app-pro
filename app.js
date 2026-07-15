@@ -3683,37 +3683,49 @@ function renderMagLines(){
     const gp=document.getElementById('mag-go-print'); if(gp) gp.classList.remove('visible');
     return;
   }
-  box.innerHTML=`<div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:680px;table-layout:auto;">
+  box.innerHTML=`<div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:560px;table-layout:fixed;">
+    <colgroup>
+      <col style="width:22px">
+      <col style="width:90px">
+      <col>
+      <col style="width:68px">
+      <col style="width:50px">
+      <col style="width:60px">
+      <col style="width:52px">
+      <col style="width:72px">
+      <col style="width:80px">
+      <col style="width:26px">
+    </colgroup>
     <thead><tr>
-      <th style="width:24px;padding:4px 2px;"></th>
-      <th style="width:100px;">Réf. produit</th>
+      <th style="padding:4px 0;"></th>
+      <th style="font-size:10px;">Réf. produit</th>
       <th>Nom produit</th>
-      <th style="width:75px;">Couleur</th>
-      <th style="width:55px;">Taille</th>
-      <th style="width:65px;">Grammage</th>
-      <th class="r" style="width:75px;min-width:75px;">Qté</th>
-      <th class="r" style="width:90px;min-width:90px;">PU HT&nbsp;€</th>
-      <th class="r" style="width:85px;min-width:85px;">Montant&nbsp;€</th>
-      <th style="width:30px;"></th>
+      <th style="font-size:10px;">Couleur</th>
+      <th style="font-size:10px;">Taille</th>
+      <th style="font-size:10px;">Grammage</th>
+      <th class="r" style="font-size:10px;">Qté</th>
+      <th class="r" style="font-size:10px;">PU HT&nbsp;€</th>
+      <th class="r" style="font-size:10px;">Montant&nbsp;€</th>
+      <th></th>
     </tr></thead><tbody>
     ${magLines.map((l,i)=>`<tr>
-      <td style="padding:1px 2px;text-align:center;vertical-align:middle;">
-        <button onclick="magMoveLine(${i},-1)" ${i===0?'disabled':''} style="display:block;width:20px;height:15px;padding:0;margin-bottom:1px;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===0?'opacity:.2;':''}">▲</button>
-        <button onclick="magMoveLine(${i},1)" ${i===magLines.length-1?'disabled':''} style="display:block;width:20px;height:15px;padding:0;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===magLines.length-1?'opacity:.2;':''}">▼</button>
+      <td style="padding:0;text-align:center;vertical-align:middle;">
+        <button onclick="magMoveLine(${i},-1)" ${i===0?'disabled':''} style="display:block;width:18px;height:14px;padding:0;margin:0 auto 1px;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===0?'opacity:.2;':''}">▲</button>
+        <button onclick="magMoveLine(${i},1)" ${i===magLines.length-1?'disabled':''} style="display:block;width:18px;height:14px;padding:0;margin:0 auto;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===magLines.length-1?'opacity:.2;':''}">▼</button>
       </td>
-      <td class="mono"><input value="${fe(l.ref)}" style="width:86px;font-family:monospace;font-size:11px;padding:5px 6px;box-sizing:border-box;" oninput="magLines[${i}].ref=this.value"/></td>
-      <td><input value="${fe(l.nom)}" style="width:100%;min-width:120px;font-weight:700;font-size:13px;padding:5px 7px;box-sizing:border-box;" oninput="magLines[${i}].nom=this.value"/></td>
-      <td><input value="${fe(l.couleur)}" style="width:62px;font-size:12px;padding:5px 6px;box-sizing:border-box;" oninput="magLines[${i}].couleur=this.value"/></td>
-      <td><input value="${fe(l.taille)}" style="width:45px;font-size:12px;padding:5px 4px;box-sizing:border-box;" oninput="magLines[${i}].taille=this.value"/></td>
-      <td><input value="${fe(l.grammage)}" style="width:52px;font-size:12px;padding:5px 4px;box-sizing:border-box;" oninput="magLines[${i}].grammage=this.value"/></td>
-      <td class="r"><input type="number" value="${l.qty}" min="1"
-        style="width:62px;text-align:center;font-weight:800;font-size:14px;padding:5px 4px;box-sizing:border-box;"
+      <td class="mono" style="padding:3px 4px;"><input value="${fe(l.ref)}" style="width:100%;font-family:monospace;font-size:11px;padding:4px 4px;box-sizing:border-box;" oninput="magLines[${i}].ref=this.value"/></td>
+      <td style="padding:3px 4px;"><input value="${fe(l.nom)}" style="width:100%;font-weight:700;font-size:13px;padding:5px 6px;box-sizing:border-box;" oninput="magLines[${i}].nom=this.value"/></td>
+      <td style="padding:3px 3px;"><input value="${fe(l.couleur)}" style="width:100%;font-size:11px;padding:4px 3px;box-sizing:border-box;" oninput="magLines[${i}].couleur=this.value"/></td>
+      <td style="padding:3px 2px;"><input value="${fe(l.taille)}" style="width:100%;font-size:11px;padding:4px 3px;box-sizing:border-box;" oninput="magLines[${i}].taille=this.value"/></td>
+      <td style="padding:3px 2px;"><input value="${fe(l.grammage)}" style="width:100%;font-size:11px;padding:4px 3px;box-sizing:border-box;" oninput="magLines[${i}].grammage=this.value"/></td>
+      <td class="r" style="padding:3px 2px;"><input type="number" value="${l.qty}" min="1"
+        style="width:100%;text-align:center;font-weight:800;font-size:13px;padding:4px 2px;box-sizing:border-box;"
         oninput="magLines[${i}].qty=Math.max(1,parseInt(this.value)||1);factuRenderTotals('mag')"/></td>
-      <td class="r"><input type="number" value="${l.pu.toFixed(2)}" min="0" step="0.01"
-        style="width:76px;text-align:center;font-weight:800;font-size:14px;padding:5px 4px;box-sizing:border-box;"
+      <td class="r" style="padding:3px 2px;"><input type="number" value="${l.pu.toFixed(2)}" min="0" step="0.01"
+        style="width:100%;text-align:center;font-weight:800;font-size:13px;padding:4px 2px;box-sizing:border-box;"
         oninput="magLines[${i}].pu=Math.max(0,parseFloat(this.value.replace(',','.'))||0);factuRenderTotals('mag')"/></td>
-      <td class="r bold" id="mmt-${i}" style="font-size:13px;white-space:nowrap;">${mny(l.qty*l.pu)}</td>
-      <td><button onclick="magLines.splice(${i},1);renderMagLines()" class="btn-del">✕</button></td>
+      <td class="r bold" id="mmt-${i}" style="font-size:12px;padding:3px 4px;white-space:nowrap;">${mny(l.qty*l.pu)}</td>
+      <td style="padding:2px 2px;"><button onclick="magLines.splice(${i},1);renderMagLines()" class="btn-del" style="font-size:13px;">✕</button></td>
     </tr>`).join('')}
     </tbody></table></div>
     <button onclick="magAddLine()" style="margin-top:10px;padding:8px 18px;background:#2d6a2d;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;">➕ Ajouter une ligne</button>`;
@@ -3746,33 +3758,42 @@ function renderCabLines(){
     const gp=document.getElementById('cab-go-print'); if(gp) gp.classList.remove('visible');
     return;
   }
-  box.innerHTML=`<div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:600px;table-layout:auto;">
+  box.innerHTML=`<div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:480px;table-layout:fixed;">
+    <colgroup>
+      <col style="width:22px">
+      <col style="width:58px">
+      <col>
+      <col style="width:52px">
+      <col style="width:62px">
+      <col style="width:80px">
+      <col style="width:26px">
+    </colgroup>
     <thead><tr>
-      <th style="width:24px;padding:4px 2px;"></th>
-      <th style="width:110px;">Réf. PE</th>
+      <th style="padding:4px 0;"></th>
+      <th style="font-size:10px;">Réf. PE</th>
       <th>Désignation Cabesto</th>
-      <th class="r" style="width:80px;min-width:80px;">Qté</th>
-      <th class="r" style="width:90px;min-width:90px;">PU HT&nbsp;€</th>
-      <th class="r" style="width:85px;min-width:85px;">Montant&nbsp;€</th>
-      <th style="width:30px;"></th>
+      <th class="r" style="font-size:10px;">Qté</th>
+      <th class="r" style="font-size:10px;">PU HT&nbsp;€</th>
+      <th class="r" style="font-size:10px;">Montant&nbsp;€</th>
+      <th></th>
     </tr></thead><tbody>
     ${cabLines.map((l,i)=>`<tr>
-      <td style="padding:1px 2px;text-align:center;vertical-align:middle;">
-        <button onclick="cabMoveLine(${i},-1)" ${i===0?'disabled':''} style="display:block;width:20px;height:15px;padding:0;margin-bottom:1px;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===0?'opacity:.2;':''}">▲</button>
-        <button onclick="cabMoveLine(${i},1)" ${i===cabLines.length-1?'disabled':''} style="display:block;width:20px;height:15px;padding:0;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===cabLines.length-1?'opacity:.2;':''}">▼</button>
+      <td style="padding:0;text-align:center;vertical-align:middle;">
+        <button onclick="cabMoveLine(${i},-1)" ${i===0?'disabled':''} style="display:block;width:18px;height:14px;padding:0;margin:0 auto 1px;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===0?'opacity:.2;':''}">▲</button>
+        <button onclick="cabMoveLine(${i},1)" ${i===cabLines.length-1?'disabled':''} style="display:block;width:18px;height:14px;padding:0;margin:0 auto;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===cabLines.length-1?'opacity:.2;':''}">▼</button>
       </td>
-      <td><input value="${fe(l.pe)}" style="width:96px;font-family:monospace;font-size:11px;padding:5px 6px;box-sizing:border-box;"
+      <td style="padding:3px 4px;"><input value="${fe(l.pe)}" style="width:100%;font-family:monospace;font-size:10px;padding:4px 3px;box-sizing:border-box;"
         oninput="cabLines[${i}].pe=this.value"/></td>
-      <td><input value="${fe(l.desCab)}" style="width:100%;min-width:150px;font-weight:700;font-size:13px;padding:6px 8px;box-sizing:border-box;"
+      <td style="padding:3px 4px;"><input value="${fe(l.desCab)}" style="width:100%;font-weight:700;font-size:14px;padding:5px 6px;box-sizing:border-box;"
         oninput="cabLines[${i}].desCab=this.value"/></td>
-      <td class="r"><input type="number" value="${l.qty}" min="1"
-        style="width:66px;text-align:center;font-weight:800;font-size:14px;padding:5px 4px;box-sizing:border-box;"
+      <td style="padding:3px 2px;" class="r"><input type="number" value="${l.qty}" min="1"
+        style="width:100%;text-align:center;font-weight:800;font-size:13px;padding:4px 2px;box-sizing:border-box;"
         oninput="cabLines[${i}].qty=Math.max(1,parseInt(this.value)||1);factuRenderTotals('cab')"/></td>
-      <td class="r"><input type="number" value="${l.puCab.toFixed(2)}" min="0" step="0.01"
-        style="width:76px;text-align:center;font-weight:800;font-size:14px;padding:5px 4px;box-sizing:border-box;"
+      <td style="padding:3px 2px;" class="r"><input type="number" value="${l.puCab.toFixed(2)}" min="0" step="0.01"
+        style="width:100%;text-align:center;font-weight:800;font-size:13px;padding:4px 2px;box-sizing:border-box;"
         oninput="cabLines[${i}].puCab=Math.max(0,parseFloat(this.value.replace(',','.'))||0);factuRenderTotals('cab')"/></td>
-      <td class="r bold" id="cmt-${i}" style="font-size:13px;white-space:nowrap;">${mny(l.qty*l.puCab)}</td>
-      <td><button onclick="cabLines.splice(${i},1);renderCabLines()" class="btn-del">✕</button></td>
+      <td class="r bold" id="cmt-${i}" style="font-size:12px;padding:3px 4px;white-space:nowrap;">${mny(l.qty*l.puCab)}</td>
+      <td style="padding:2px 2px;"><button onclick="cabLines.splice(${i},1);renderCabLines()" class="btn-del" style="font-size:13px;">✕</button></td>
     </tr>`).join('')}
     </tbody></table></div>`;
   factuRenderTotals('cab');
