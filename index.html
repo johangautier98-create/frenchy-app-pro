@@ -90,11 +90,30 @@
   });
 })();
 </script>
+<script>
+function toggleSidebar(){
+  var nav=document.getElementById('nav-tabs');
+  var ov=document.getElementById('sidebar-overlay');
+  if(!nav)return;
+  var open=nav.classList.toggle('sidebar-open');
+  if(ov) ov.classList.toggle('visible',open);
+}
+function closeSidebar(){
+  var nav=document.getElementById('nav-tabs');
+  var ov=document.getElementById('sidebar-overlay');
+  if(nav) nav.classList.remove('sidebar-open');
+  if(ov) ov.classList.remove('visible');
+}
+</script>
+
+<!-- SIDEBAR OVERLAY (mobile) -->
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
 
 <!-- HEADER -->
 <header id="app-header">
-  <!-- GAUCHE : bouton IA -->
+  <!-- GAUCHE : hamburger + bouton IA -->
   <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+    <button id="sidebar-toggle" onclick="toggleSidebar()" aria-label="Menu">☰</button>
     <div id="ia-status-btn" onclick="checkIACredit()" title="Statut OpenAI — cliquer pour vérifier"
       style="display:flex;align-items:center;gap:6px;padding:5px 13px;border-radius:999px;cursor:pointer;font-size:12px;font-weight:700;border:1.5px solid #4caf50;color:#4caf50;background:rgba(76,175,80,.12);transition:.2s;user-select:none;white-space:nowrap">
       <span id="ia-dot" style="width:8px;height:8px;border-radius:50%;background:#4caf50;flex-shrink:0;box-shadow:0 0 6px #4caf50"></span>
@@ -535,10 +554,10 @@ Rouget 9cm 14g x8"></textarea>
 .btn-go-print.visible{display:block;}
 </style>
 
-<div style="display:flex;background:#1a1a1a;border-radius:10px;overflow:hidden;margin-bottom:14px;">
-  <button id="sub-tab-magasin" class="sub-tab-btn" style="background:#e8c840;color:#1a1a1a;" onclick="showFactuTab('magasin')">🏪 Facturation Magasin</button>
-  <button id="sub-tab-cabesto" class="sub-tab-btn" style="background:#1a1a1a;color:#666;" onclick="showFactuTab('cabesto')">🔗 Facturation Cabesto</button>
-  <button id="sub-tab-historique" class="sub-tab-btn" style="background:#1a1a1a;color:#666;" onclick="showFactuTab('historique')">📂 Factures enregistrées</button>
+<div class="factu-nav">
+  <button id="sub-tab-magasin" class="factu-nav-btn fn-mag active" onclick="showFactuTab('magasin')">🏪 Magasin</button>
+  <button id="sub-tab-cabesto" class="factu-nav-btn fn-cab" onclick="showFactuTab('cabesto')">🔗 Cabesto</button>
+  <button id="sub-tab-historique" class="factu-nav-btn fn-hist" onclick="showFactuTab('historique')">📂 Documents</button>
 </div>
 <div id="drafts-panel" style="display:none;margin-bottom:12px;"></div>
 
@@ -582,14 +601,14 @@ Rouget 9cm 14g x8"></textarea>
     </div>
     <div class="grid3">
       <div><label class="lbl">Magasin *</label>
-        <select id="mag-client-sel"><option value="">— Choisir un magasin —</option></select></div>
+        <select id="mag-client-sel" onchange="magUpdatePreview(_magPreviewType||'invoice')"><option value="">— Choisir un magasin —</option></select></div>
       <div><label class="lbl">N° facture</label>
         <div style="display:flex;gap:4px;align-items:center;">
-          <input type="text" id="mag-inv-num" style="flex:1;"/>
+          <input type="text" id="mag-inv-num" style="flex:1;" oninput="magUpdatePreview(_magPreviewType||'invoice')"/>
           <button onclick="autoFillInvNum('mag')" title="Générer prochain numéro" style="padding:7px 9px;background:#444;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap;">🔄</button>
         </div>
       </div>
-      <div><label class="lbl">Date</label><input type="date" id="mag-inv-date"/></div>
+      <div><label class="lbl">Date</label><input type="date" id="mag-inv-date" oninput="magUpdatePreview(_magPreviewType||'invoice')"/></div>
     </div>
     <div class="grid2" style="margin-top:10px;">
       <div><label class="lbl">Réf. commande client</label><input type="text" id="mag-order-ref" placeholder="BC-2026-001"/></div>
@@ -609,9 +628,10 @@ Rouget 9cm 14g x8"></textarea>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
       <button class="btn" style="background:#1565c0;color:#fff;border-color:#1565c0;font-weight:700;font-size:14px;" onclick="_magArchive('invoice')">💾 Enregistrer la facture</button>
+      <button class="btn" style="background:#e65100;color:#fff;border-color:#e65100;font-weight:700;font-size:14px;" onclick="_magArchive('delivery')">📦 Enregistrer le bon de livraison</button>
       <button class="btn btn-success" onclick="magPrint('invoice')">🧾 Imprimer facture</button>
       <button class="btn btn-dark" onclick="magDownload('invoice')">⬇️ Télécharger facture</button>
-      <button class="btn btn-success" onclick="magPrint('delivery')">📦 Imprimer bon livraison</button>
+      <button class="btn btn-success" onclick="magPrint('delivery')">🖨️ Imprimer bon livraison</button>
       <button class="btn btn-dark" onclick="magDownload('delivery')">⬇️ Télécharger bon livraison</button>
     </div>
     <button class="btn-go-print" id="mag-go-print" onclick="goToCommandeFromFactu('mag')">
@@ -622,6 +642,15 @@ Rouget 9cm 14g x8"></textarea>
     <div class="card-title">📋 Lignes facture — prix HT catalogue automatiques</div>
     <div id="mag-lines"><div class="factu-empty">Importez ou collez une commande ci-dessus, ou cliquez "Passer à la facturation Magasin" depuis l'onglet Impression.</div></div>
     <div id="mag-total" style="display:none;margin-top:8px;"></div>
+  </div>
+  <!-- APERÇU EN DIRECT -->
+  <div class="card">
+    <div class="card-title">👁️ Aperçu en direct — facture / bon de livraison</div>
+    <div class="preview-toggle">
+      <button id="prev-btn-invoice" class="active" onclick="magSetPreviewType('invoice')">🧾 Voir la facture</button>
+      <button id="prev-btn-delivery" onclick="magSetPreviewType('delivery')">📦 Voir le bon de livraison</button>
+    </div>
+    <iframe id="mag-factu-preview" sandbox="allow-same-origin" title="Aperçu document"></iframe>
   </div>
 </div>
 
@@ -695,9 +724,10 @@ Rouget 9cm 14g x8"></textarea>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
       <button class="btn" style="background:#1565c0;color:#fff;border-color:#1565c0;font-weight:700;font-size:14px;" onclick="_cabArchive('invoice')">💾 Enregistrer la facture</button>
+      <button class="btn" style="background:#e65100;color:#fff;border-color:#e65100;font-weight:700;font-size:14px;" onclick="_cabArchive('delivery')">📦 Enregistrer le bon de livraison</button>
       <button class="btn btn-success" style="background:#c62828;border-color:#c62828;" onclick="cabPrint('invoice')">🧾 Imprimer facture</button>
       <button class="btn btn-dark" onclick="cabDownload('invoice')">⬇️ Télécharger facture</button>
-      <button class="btn btn-success" style="background:#c62828;border-color:#c62828;" onclick="cabPrint('delivery')">📦 Imprimer bon livraison</button>
+      <button class="btn btn-success" style="background:#c62828;border-color:#c62828;" onclick="cabPrint('delivery')">🖨️ Imprimer bon livraison</button>
       <button class="btn btn-dark" onclick="cabDownload('delivery')">⬇️ Télécharger bon livraison</button>
       <div id="cab-packing-info" style="margin:8px 0 4px;padding:8px 12px;background:#0a2a0a;border:1px solid #1a5e20;border-radius:6px;font-size:12px;display:flex;gap:16px;flex-wrap:wrap">
         <span style="color:#aaa">🏪 CDE magasin : <strong id="cab-cde-display" style="color:#66bb6a">— (détecté à l'import)</strong></span>
