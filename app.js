@@ -3683,33 +3683,39 @@ function renderMagLines(){
     const gp=document.getElementById('mag-go-print'); if(gp) gp.classList.remove('visible');
     return;
   }
-  box.innerHTML=`<table class="factu-table" style="width:100%;min-width:980px;table-layout:auto;">
+  box.innerHTML=`<div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:680px;table-layout:auto;">
     <thead><tr>
-      <th style="width:32px;"></th>
-      <th>Réf. produit</th><th>Nom produit</th><th>Couleur</th>
-      <th>Taille</th><th>Grammage</th>
-      <th class="r" style="width:120px;min-width:120px;">Qté</th><th class="r" style="width:140px;min-width:140px;">PU HT&nbsp;€</th><th class="r" style="width:130px;min-width:130px;">Montant HT&nbsp;€</th><th style="width:40px;"></th>
+      <th style="width:24px;padding:4px 2px;"></th>
+      <th style="width:100px;">Réf. produit</th>
+      <th>Nom produit</th>
+      <th style="width:75px;">Couleur</th>
+      <th style="width:55px;">Taille</th>
+      <th style="width:65px;">Grammage</th>
+      <th class="r" style="width:75px;min-width:75px;">Qté</th>
+      <th class="r" style="width:90px;min-width:90px;">PU HT&nbsp;€</th>
+      <th class="r" style="width:85px;min-width:85px;">Montant&nbsp;€</th>
+      <th style="width:30px;"></th>
     </tr></thead><tbody>
     ${magLines.map((l,i)=>`<tr>
-      <td style="padding:2px 4px;white-space:nowrap;">
-        <button onclick="magMoveLine(${i},-1)" ${i===0?'disabled':''} style="display:block;width:26px;height:20px;padding:0;margin-bottom:2px;background:#444;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;${i===0?'opacity:0.3;':''}"">▲</button>
-        <button onclick="magMoveLine(${i},1)" ${i===magLines.length-1?'disabled':''} style="display:block;width:26px;height:20px;padding:0;background:#444;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;${i===magLines.length-1?'opacity:0.3;':''}"">▼</button>
+      <td style="padding:1px 2px;text-align:center;vertical-align:middle;">
+        <button onclick="magMoveLine(${i},-1)" ${i===0?'disabled':''} style="display:block;width:20px;height:15px;padding:0;margin-bottom:1px;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===0?'opacity:.2;':''}">▲</button>
+        <button onclick="magMoveLine(${i},1)" ${i===magLines.length-1?'disabled':''} style="display:block;width:20px;height:15px;padding:0;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===magLines.length-1?'opacity:.2;':''}">▼</button>
       </td>
-      <td class="mono"><input value="${fe(l.ref)}" style="width:110px;font-family:monospace;font-size:12px;padding:5px 7px;box-sizing:border-box;" oninput="magLines[${i}].ref=this.value"/></td>
-      <td><input value="${fe(l.nom)}" style="width:160px;font-weight:700;font-size:13px;padding:5px 7px;box-sizing:border-box;" oninput="magLines[${i}].nom=this.value"/></td>
-      <td><input value="${fe(l.couleur)}" style="width:80px;font-size:12px;padding:5px 7px;box-sizing:border-box;" oninput="magLines[${i}].couleur=this.value"/></td>
-      <td><input value="${fe(l.taille)}" style="width:60px;font-size:12px;padding:5px 7px;box-sizing:border-box;" oninput="magLines[${i}].taille=this.value"/></td>
-      <td><input value="${fe(l.grammage)}" style="width:60px;font-size:12px;padding:5px 7px;box-sizing:border-box;" oninput="magLines[${i}].grammage=this.value"/></td>
+      <td class="mono"><input value="${fe(l.ref)}" style="width:86px;font-family:monospace;font-size:11px;padding:5px 6px;box-sizing:border-box;" oninput="magLines[${i}].ref=this.value"/></td>
+      <td><input value="${fe(l.nom)}" style="width:100%;min-width:120px;font-weight:700;font-size:13px;padding:5px 7px;box-sizing:border-box;" oninput="magLines[${i}].nom=this.value"/></td>
+      <td><input value="${fe(l.couleur)}" style="width:62px;font-size:12px;padding:5px 6px;box-sizing:border-box;" oninput="magLines[${i}].couleur=this.value"/></td>
+      <td><input value="${fe(l.taille)}" style="width:45px;font-size:12px;padding:5px 4px;box-sizing:border-box;" oninput="magLines[${i}].taille=this.value"/></td>
+      <td><input value="${fe(l.grammage)}" style="width:52px;font-size:12px;padding:5px 4px;box-sizing:border-box;" oninput="magLines[${i}].grammage=this.value"/></td>
       <td class="r"><input type="number" value="${l.qty}" min="1"
-        style="width:95px;min-width:95px;max-width:95px;text-align:center;font-weight:800;font-size:15px;padding:8px 10px;box-sizing:border-box;"
+        style="width:62px;text-align:center;font-weight:800;font-size:14px;padding:5px 4px;box-sizing:border-box;"
         oninput="magLines[${i}].qty=Math.max(1,parseInt(this.value)||1);factuRenderTotals('mag')"/></td>
       <td class="r"><input type="number" value="${l.pu.toFixed(2)}" min="0" step="0.01"
-        style="width:110px;min-width:110px;max-width:110px;text-align:center;font-weight:800;font-size:15px;padding:8px 10px;box-sizing:border-box;"
+        style="width:76px;text-align:center;font-weight:800;font-size:14px;padding:5px 4px;box-sizing:border-box;"
         oninput="magLines[${i}].pu=Math.max(0,parseFloat(this.value.replace(',','.'))||0);factuRenderTotals('mag')"/></td>
-      <td class="r bold" id="mmt-${i}" style="min-width:80px;">${mny(l.qty*l.pu)}</td>
+      <td class="r bold" id="mmt-${i}" style="font-size:13px;white-space:nowrap;">${mny(l.qty*l.pu)}</td>
       <td><button onclick="magLines.splice(${i},1);renderMagLines()" class="btn-del">✕</button></td>
     </tr>`).join('')}
-    </tbody></table>
+    </tbody></table></div>
     <button onclick="magAddLine()" style="margin-top:10px;padding:8px 18px;background:#2d6a2d;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;">➕ Ajouter une ligne</button>`;
   factuRenderTotals('mag');
   const gp=document.getElementById('mag-go-print'); if(gp) gp.classList.add('visible');
@@ -3740,28 +3746,32 @@ function renderCabLines(){
     const gp=document.getElementById('cab-go-print'); if(gp) gp.classList.remove('visible');
     return;
   }
-  box.innerHTML=`<div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:1080px;table-layout:auto;">
+  box.innerHTML=`<div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:600px;table-layout:auto;">
     <thead><tr>
-      <th style="width:32px;"></th>
-      <th style="width:170px;">Réf. PE Cabesto</th><th style="width:300px;">Désignation Cabesto</th>
-      <th class="r" style="width:180px;min-width:180px;">Qté</th><th class="r" style="width:190px;min-width:190px;">PU HT&nbsp;€</th><th class="r" style="width:150px;min-width:150px;">Montant HT&nbsp;€</th><th style="width:40px;"></th>
+      <th style="width:24px;padding:4px 2px;"></th>
+      <th style="width:110px;">Réf. PE</th>
+      <th>Désignation Cabesto</th>
+      <th class="r" style="width:80px;min-width:80px;">Qté</th>
+      <th class="r" style="width:90px;min-width:90px;">PU HT&nbsp;€</th>
+      <th class="r" style="width:85px;min-width:85px;">Montant&nbsp;€</th>
+      <th style="width:30px;"></th>
     </tr></thead><tbody>
     ${cabLines.map((l,i)=>`<tr>
-      <td style="padding:2px 4px;white-space:nowrap;">
-        <button onclick="cabMoveLine(${i},-1)" ${i===0?'disabled':''} style="display:block;width:26px;height:20px;padding:0;margin-bottom:2px;background:#444;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;">▲</button>
-        <button onclick="cabMoveLine(${i},1)" ${i===cabLines.length-1?'disabled':''} style="display:block;width:26px;height:20px;padding:0;background:#444;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;">▼</button>
+      <td style="padding:1px 2px;text-align:center;vertical-align:middle;">
+        <button onclick="cabMoveLine(${i},-1)" ${i===0?'disabled':''} style="display:block;width:20px;height:15px;padding:0;margin-bottom:1px;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===0?'opacity:.2;':''}">▲</button>
+        <button onclick="cabMoveLine(${i},1)" ${i===cabLines.length-1?'disabled':''} style="display:block;width:20px;height:15px;padding:0;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===cabLines.length-1?'opacity:.2;':''}">▼</button>
       </td>
-      <td><input value="${fe(l.pe)}" style="width:150px;min-width:150px;font-family:monospace;font-size:12px;padding:7px 8px;box-sizing:border-box;"
+      <td><input value="${fe(l.pe)}" style="width:96px;font-family:monospace;font-size:11px;padding:5px 6px;box-sizing:border-box;"
         oninput="cabLines[${i}].pe=this.value"/></td>
-      <td><input value="${fe(l.desCab)}" style="width:300px;min-width:300px;font-weight:700;font-size:12px;padding:7px 8px;box-sizing:border-box;"
+      <td><input value="${fe(l.desCab)}" style="width:100%;min-width:150px;font-weight:700;font-size:13px;padding:6px 8px;box-sizing:border-box;"
         oninput="cabLines[${i}].desCab=this.value"/></td>
       <td class="r"><input type="number" value="${l.qty}" min="1"
-        style="width:160px;min-width:160px;max-width:none;text-align:center;font-weight:900;font-size:17px;padding:10px 14px;box-sizing:border-box;"
+        style="width:66px;text-align:center;font-weight:800;font-size:14px;padding:5px 4px;box-sizing:border-box;"
         oninput="cabLines[${i}].qty=Math.max(1,parseInt(this.value)||1);factuRenderTotals('cab')"/></td>
       <td class="r"><input type="number" value="${l.puCab.toFixed(2)}" min="0" step="0.01"
-        style="width:170px;min-width:170px;max-width:none;text-align:center;font-weight:900;font-size:17px;padding:10px 14px;box-sizing:border-box;"
+        style="width:76px;text-align:center;font-weight:800;font-size:14px;padding:5px 4px;box-sizing:border-box;"
         oninput="cabLines[${i}].puCab=Math.max(0,parseFloat(this.value.replace(',','.'))||0);factuRenderTotals('cab')"/></td>
-      <td class="r bold" id="cmt-${i}" style="min-width:80px;">${mny(l.qty*l.puCab)}</td>
+      <td class="r bold" id="cmt-${i}" style="font-size:13px;white-space:nowrap;">${mny(l.qty*l.puCab)}</td>
       <td><button onclick="cabLines.splice(${i},1);renderCabLines()" class="btn-del">✕</button></td>
     </tr>`).join('')}
     </tbody></table></div>`;
