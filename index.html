@@ -111,47 +111,35 @@
   </div>
 </header>
 
-<!-- TABS -->
+<!-- SIDEBAR -->
 <nav id="nav-tabs">
-  <!-- Onglets principaux — centrés sur PC -->
-  <div class="nav-main-group">
-    <button class="tab-btn active" onclick="showTab('commande')" id="tab-commande">
-      <span class="tab-icon">📋</span>Commande
-    </button>
-    <button class="tab-btn" onclick="showTab('catalogue')" id="tab-catalogue">
-      <span class="tab-icon">📦</span>Catalogue
-    </button>
-    <button class="tab-btn" onclick="showTab('impression')" id="tab-impression">
-      <span class="tab-icon">🖨️</span>Impression
-    </button>
-    <button class="tab-btn" onclick="showTab('facturation')" id="tab-facturation">
-      <span class="tab-icon">🧾</span>Facturation
-    </button>
-    <button class="tab-btn" onclick="showTab('comptes-pro')" id="tab-comptes-pro">
-      <span class="tab-icon">🏪</span>Comptes Pro
-    </button>
-    <button class="tab-btn" onclick="showTab('comptabilite')" id="tab-comptabilite">
-      <span class="tab-icon">📊</span>Comptabilité
-    </button>
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-name">🎣 Frenchy <span>Leurres</span></div>
+    <div class="sidebar-brand-sub">Application Pro</div>
   </div>
-    <button class="tab-btn" onclick="showTab('shopify')" id="tab-shopify">
-      <span class="tab-icon">🛒</span>Shopify
-    </button>
+  <div class="sidebar-group">
+    <div class="sidebar-group-label">Ventes</div>
+    <button class="tab-btn active" id="tab-commande"><span class="tab-icon">📋</span>Commande</button>
+    <button class="tab-btn" id="tab-catalogue"><span class="tab-icon">📦</span>Catalogue</button>
+    <button class="tab-btn" id="tab-impression"><span class="tab-icon">🖨️</span>Impression</button>
   </div>
-  <!-- Blog -->
-  <button class="tab-btn" onclick="showTab('blog-ravager')" id="tab-blog-ravager" style="background:linear-gradient(135deg,#8b0000,#cc2200);color:#fff;border:none;font-weight:900;letter-spacing:.5px">
-    <span class="tab-icon">✍️</span>Blog
-  </button>
-  <!-- Onglets secondaires — séparés à droite -->
-  <div class="nav-right-group">
-    <button class="tab-btn" onclick="showTab('installation')" id="tab-installation">
-      <span class="tab-icon">⚙️</span>Installation
-    </button>
-    <button class="tab-btn" onclick="showTab('guide')" id="tab-guide">
-      <span class="tab-icon">❓</span>Guide
-    </button>
+  <div class="sidebar-group">
+    <div class="sidebar-group-label">Finance</div>
+    <button class="tab-btn" id="tab-facturation"><span class="tab-icon">🧾</span>Facturation</button>
+    <button class="tab-btn" id="tab-comptes-pro"><span class="tab-icon">🏪</span>Comptes Pro</button>
+    <button class="tab-btn" id="tab-comptabilite"><span class="tab-icon">📊</span>Comptabilité</button>
+  </div>
+  <div class="sidebar-group">
+    <div class="sidebar-group-label">Marketing</div>
+    <button class="tab-btn" id="tab-shopify"><span class="tab-icon">🛒</span>Shopify</button>
+    <button class="tab-btn" id="tab-blog-ravager"><span class="tab-icon">✍️</span>Blog Ravager</button>
+  </div>
+  <div class="sidebar-bottom">
+    <button class="tab-btn" id="tab-installation"><span class="tab-icon">⚙️</span>Installation</button>
+    <button class="tab-btn" id="tab-guide"><span class="tab-icon">❓</span>Guide</button>
   </div>
 </nav>
+<div id="main-area">
 
 <!-- ═══════════════════════════════════════════
      PAGE : COMMANDE
@@ -2263,5 +2251,6 @@ Rouget 9cm 14g x8"></textarea>
 })();
 </script>
 
+</div><!-- /#main-area -->
 </body>
 </html>
