@@ -2563,6 +2563,7 @@ let cabCurrentInvoiceId = null;
 
 // ── NAVIGATION ────────────────────────────────────────────────────────
 function showFactuTab(name){
+  try{localStorage.setItem('fl_factu_tab',name);}catch(e){}
   document.getElementById('factu-magasin').style.display=name==='magasin'?'block':'none';
   document.getElementById('factu-cabesto').style.display=name==='cabesto'?'block':'none';
   var h=document.getElementById('factu-tab-historique');if(h)h.style.display=name==='historique'?'block':'none';
@@ -3887,18 +3888,55 @@ async function archiveFacture(opts){
 
 var _magSilent=false;
 var _magPreviewType='invoice';
+function magBuildPreviewHtml(type){
+  var isDelivery=type==='delivery';
+  var num=(document.getElementById('mag-inv-num')||{}).value||'FL-2026-???';
+  var date=(document.getElementById('mag-inv-date')||{}).value||todayISO();
+  var oref=(document.getElementById('mag-order-ref')||{}).value||'';
+  var port=parseFloat((document.getElementById('mag-port')||{value:0}).value)||0;
+  var remisePct=parseFloat((document.getElementById('mag-remise')||{value:0}).value)||0;
+  var c=magClient;
+  var clientHtml=c
+    ?`<strong>${fe(c.name)}</strong><br>${nl2(c.address||'')}<br>${c.phone?'Tél&nbsp;: '+fe(c.phone)+'<br>':''}${c.email?fe(c.email):''}`
+    :'<em style="color:#aaa;font-size:10px;">— Sélectionnez un magasin dans le formulaire ci-dessus —</em>';
+  var linesHtml='';
+  if(magLines.length){
+    var ht=magLines.reduce(function(s,l){return s+Number(l.qty)*Number(l.pu);},0);
+    var remiseMt=ht*remisePct/100;var htR=ht-remiseMt;var net=htR+port;
+    if(isDelivery){
+      linesHtml=magLines.map(function(l){return '<tr><td class="mono">'+fe(l.ref)+'</td><td>'+fe(l.nom)+'</td><td>'+(fe(l.couleur)||'—')+'</td><td>'+(fe(l.taille)||'—')+'</td><td>'+(fe(l.grammage)||'—')+'</td><td class="r"><strong>'+l.qty+'</strong></td><td class="r">□</td></tr>';}).join('');
+    } else {
+      linesHtml=magLines.map(function(l){return '<tr><td class="mono">'+fe(l.ref)+'</td><td>'+fe(l.nom)+'</td><td>'+(fe(l.couleur)||'—')+'</td><td>'+(fe(l.taille)||'—')+'</td><td>'+(fe(l.grammage)||'—')+'</td><td class="r">'+l.qty+'</td><td class="r">'+mny(l.pu)+'</td><td class="r"><strong>'+mny(Number(l.qty)*Number(l.pu))+'</strong></td></tr>';}).join('');
+      linesHtml+='</tbody></table><table class="tot"><tbody>'
+        +'<tr><td><strong>Total hors taxes</strong></td><td class="r"><strong>'+mny(ht)+'</strong></td></tr>'
+        +(remisePct>0?'<tr style="color:#c62828;font-weight:700"><td>Remise '+remisePct+'%</td><td class="r">− '+mny(remiseMt)+'</td></tr><tr><td><strong>Total HT après remise</strong></td><td class="r"><strong>'+mny(htR)+'</strong></td></tr>':'')
+        +(port>0?'<tr><td>Frais de port</td><td class="r">'+mny(port)+'</td></tr>':'')
+        +'<tr class="tva"><td>TVA non applicable (Art. 293 B CGI)</td><td class="r">0,00&nbsp;€</td></tr>'
+        +'<tr class="grand"><td>Total net à payer</td><td class="r">'+mny(net)+'</td></tr>';
+    }
+  } else {
+    var _span=isDelivery?7:8;
+    linesHtml='<tr><td colspan="'+_span+'" style="text-align:center;color:#aaa;padding:18px;font-style:italic;font-size:10px;">— Importez une commande pour voir les lignes de la facture —</td></tr>';
+  }
+  var thInvoice='<th>Réf. produit</th><th>Nom produit</th><th>Couleur</th><th>Taille</th><th>Grammage</th><th class="r">Qté</th><th class="r">PU HT&nbsp;(€)</th><th class="r">Montant HT&nbsp;(€)</th>';
+  var thDelivery='<th>Réf. produit</th><th>Nom produit</th><th>Couleur</th><th>Taille</th><th>Grammage</th><th class="r">Qté commandée</th><th class="r">Qté livrée</th>';
+  return '<!doctype html><html><head><meta charset="utf-8">'+printCSS()+'</head><body>'
+    +'<div class="header"><div class="from"><h1>'+fe(FL.name)+'</h1><p>'+fe(FL.address)+'</p><p>Tél&nbsp;: '+fe(FL.phone)+' — Mobile&nbsp;: '+fe(FL.mobile)+'</p><p>'+fe(FL.email)+'</p><p>SIRET&nbsp;: '+fe(FL.siret)+'</p></div>'
+    +'<div class="docinfo"><h2>'+(isDelivery?'BON DE LIVRAISON':'FACTURE')+'</h2>'
+    +'<table><tr><td>N° :</td><td><strong>'+fe(num)+'</strong></td></tr><tr><td>Date :</td><td>'+dfr(date)+'</td></tr>'
+    +(oref?'<tr><td>Réf. commande :</td><td>'+fe(oref)+'</td></tr>':'')
+    +'<tr><td>Règlement :</td><td>Virement bancaire</td></tr></table></div></div>'
+    +'<div class="parties"><div class="party"><h3>Expéditeur</h3><br><strong>'+fe(FL.fullName)+'</strong><br>'+nl2(FL.address)+'<br>Tél&nbsp;: '+fe(FL.phone)+'<br>'+fe(FL.email)+'<br>SIRET&nbsp;: '+fe(FL.siret)+'</div>'
+    +'<div class="party"><h3>Destinataire</h3><br>'+clientHtml+'</div></div>'
+    +'<table class="lg"><thead><tr>'+(isDelivery?thDelivery:thInvoice)+'</tr></thead><tbody>'+linesHtml+'</tbody></table>'
+    +(magLines.length&&!isDelivery?'':'')
+    +'<div class="legal">'+fe(FL.vatNote)+'</div></body></html>';
+}
 function magUpdatePreview(type){
   _magPreviewType=type||'invoice';
   var frame=document.getElementById('mag-factu-preview');
   if(!frame) return;
-  _magSilent=true;
-  var h=magGenDoc(_magPreviewType);
-  _magSilent=false;
-  if(!h){
-    frame.srcdoc='<body style="font-family:Arial;display:flex;align-items:center;justify-content:center;height:100%;color:#aaa;text-align:center;"><div><div style="font-size:48px;margin-bottom:14px">📄</div><p style="font-size:14px">Sélectionnez un magasin et importez<br>une commande pour voir l\'aperçu</p></div></body>';
-    return;
-  }
-  frame.srcdoc=h.replace(/<script>window\.onload=function\(\)\{window\.print\(\);\};<\/script>/g,'');
+  frame.srcdoc=magBuildPreviewHtml(_magPreviewType);
 }
 function magSetPreviewType(type){
   _magPreviewType=type;
@@ -4555,7 +4593,9 @@ document.addEventListener('DOMContentLoaded', function(){
       if(!page){ console.error('Onglet introuvable:', name); return false; }
       page.classList.add('active'); page.style.display='block';
       if(tab) tab.classList.add('active');
+      try{localStorage.setItem('fl_active_tab',name);}catch(e){}
       safeRender(name);
+      if(name==='facturation') setTimeout(function(){magUpdatePreview(_magPreviewType||'invoice');},80);
       return true;
     }catch(err){ console.error('Erreur navigation stable:', err); return false; }
   };
@@ -4571,8 +4611,15 @@ document.addEventListener('DOMContentLoaded', function(){
       }, true);
     }
     var anyActive=document.querySelector('.page.active');
-    if(!anyActive) window.showTab('commande');
-    else { anyActive.style.display='block'; }
+    if(!anyActive){
+      var _savedTab=null;try{_savedTab=localStorage.getItem('fl_active_tab');}catch(e){}
+      var _startTab=(_savedTab&&document.getElementById('page-'+_savedTab))?_savedTab:'commande';
+      window.showTab(_startTab);
+      if(_startTab==='facturation'){
+        var _savedFTab=null;try{_savedFTab=localStorage.getItem('fl_factu_tab');}catch(e){}
+        if(_savedFTab) setTimeout(function(){if(typeof showFactuTab==='function')showFactuTab(_savedFTab);},200);
+      }
+    } else { anyActive.style.display='block'; }
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bindTabs);
   else bindTabs();
