@@ -1035,48 +1035,70 @@ textarea{resize:vertical;min-height:90px;line-height:1.5;}
 #cab-lines .factu-table,
 #mag-lines .factu-table{
   width: 100% !important;
-  min-width: 920px !important;
+  min-width: 480px !important;
   table-layout: fixed !important;
   border-collapse: collapse !important;
 }
 
-/* Répartition propre des colonnes Cabesto */
+/* Colonnes Cabesto : flèches(4%) | réf PE(12%) | désignation(46%) | qté(8%) | PU(11%) | montant(14%) | suppr(5%) */
 #cab-lines .factu-table th:nth-child(1),
 #cab-lines .factu-table td:nth-child(1){
-  width: 18% !important;
+  width: 4% !important;
+  padding: 0 !important;
+  text-align: left !important;
 }
 
 #cab-lines .factu-table th:nth-child(2),
 #cab-lines .factu-table td:nth-child(2){
-  width: 36% !important;
+  width: 12% !important;
 }
 
 #cab-lines .factu-table th:nth-child(3),
 #cab-lines .factu-table td:nth-child(3){
-  width: 13% !important;
-  text-align: center !important;
+  width: 46% !important;
+  text-align: left !important;
 }
 
 #cab-lines .factu-table th:nth-child(4),
 #cab-lines .factu-table td:nth-child(4){
-  width: 13% !important;
+  width: 8% !important;
   text-align: center !important;
 }
 
 #cab-lines .factu-table th:nth-child(5),
 #cab-lines .factu-table td:nth-child(5){
-  width: 14% !important;
+  width: 11% !important;
   text-align: right !important;
 }
 
 #cab-lines .factu-table th:nth-child(6),
 #cab-lines .factu-table td:nth-child(6){
-  width: 6% !important;
+  width: 14% !important;
+  text-align: right !important;
+}
+
+#cab-lines .factu-table th:nth-child(7),
+#cab-lines .factu-table td:nth-child(7){
+  width: 5% !important;
   text-align: center !important;
 }
 
-/* Inputs plus grands, mais sans faire exploser le tableau */
-#cab-lines .factu-table input,
+/* Inputs dans la table Cabesto */
+#cab-lines .factu-table input{
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: 34px !important;
+  box-sizing: border-box !important;
+  padding: 4px 6px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  text-align: center !important;
+  border: 1px solid #cfcfcf !important;
+  border-radius: 4px !important;
+}
+
+/* Inputs Magasin inchangés */
 #mag-lines .factu-table input{
   width: 100% !important;
   max-width: 100% !important;
@@ -1091,16 +1113,18 @@ textarea{resize:vertical;min-height:90px;line-height:1.5;}
   border-radius: 6px !important;
 }
 
-/* Quantité et prix bien lisibles */
-#cab-lines .factu-table td:nth-child(3) input,
-#cab-lines .factu-table td:nth-child(4) input{
-  font-size: 18px !important;
-  font-weight: 900 !important;
+/* Désignation Cabesto : texte plus grand, aligné à gauche */
+#cab-lines .factu-table td:nth-child(3) input{
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  text-align: left !important;
 }
 
-/* Désignation lisible */
-#cab-lines .factu-table td:nth-child(2) input{
-  text-align: left !important;
+/* Quantité et prix bien lisibles */
+#cab-lines .factu-table td:nth-child(4) input,
+#cab-lines .factu-table td:nth-child(5) input{
+  font-size: 14px !important;
+  font-weight: 800 !important;
 }
 
 /* Croix supprimer dans le tableau, pas dehors */

@@ -39,10 +39,10 @@ module.exports = async function handler(req, res) {
 
   if (store === 'ravager') {
     shopDomain = 'mu7nv0-me.myshopify.com';
-    token = process.env.SHOPIFY_RAVAGER_TOKEN;
+    token = (process.env.SHOPIFY_RAVAGER_TOKEN || '').replace(/^﻿/, '').trim();
   } else if (store === 'frenchy') {
     shopDomain = 'b761b5-b6.myshopify.com';
-    token = process.env.SHOPIFY_FL_TOKEN;
+    token = (process.env.SHOPIFY_FL_TOKEN || '').replace(/^﻿/, '').trim();
   } else {
     return res.status(400).json({ ok: false, error: 'Parametre store manquant (ravager ou frenchy)' });
   }

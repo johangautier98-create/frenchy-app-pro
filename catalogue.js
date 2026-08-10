@@ -1577,6 +1577,32 @@ const RAW = [
     1
   ],
   [
+    "CS-ROUGET-ROSE-90-X2",
+    "Rouget",
+    "Corps souple",
+    "Rose",
+    "9 cm",
+    "",
+    "x2",
+    0,
+    0,
+    "7864179958967",
+    0
+  ],
+  [
+    "CS-ROUGET-ROSE-70-X2",
+    "Rouget",
+    "Corps souple",
+    "Rose",
+    "7 cm",
+    "",
+    "x2",
+    0,
+    0,
+    "7864179815789",
+    0
+  ],
+  [
     "FRENCHY-SD-9",
     "Frenchy Shiner",
     "Leurre souple",

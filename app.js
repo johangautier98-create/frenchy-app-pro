@@ -3759,42 +3759,33 @@ function renderCabLines(){
     const gp=document.getElementById('cab-go-print'); if(gp) gp.classList.remove('visible');
     return;
   }
-  box.innerHTML=`<div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:400px;table-layout:fixed;">
-    <colgroup>
-      <col style="width:20px">
-      <col style="width:54px">
-      <col>
-      <col style="width:34px">
-      <col style="width:46px">
-      <col style="width:56px">
-      <col style="width:22px">
-    </colgroup>
+  box.innerHTML=`<div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:380px;table-layout:fixed;">
     <thead><tr>
-      <th style="padding:4px 0;"></th>
-      <th style="font-size:10px;">Réf. PE</th>
-      <th style="font-size:11px;font-weight:800;">Désignation Cabesto</th>
-      <th class="r" style="font-size:10px;">Qté</th>
-      <th class="r" style="font-size:10px;">PU HT&nbsp;€</th>
-      <th class="r" style="font-size:10px;">Montant&nbsp;€</th>
-      <th></th>
+      <th style="width:4%;padding:4px 2px;"></th>
+      <th style="width:12%;font-size:10px;">Réf. PE</th>
+      <th style="width:46%;font-size:11px;font-weight:800;">Désignation Cabesto</th>
+      <th class="r" style="width:8%;font-size:10px;">Qté</th>
+      <th class="r" style="width:11%;font-size:10px;">PU HT&nbsp;€</th>
+      <th class="r" style="width:14%;font-size:10px;">Montant&nbsp;€</th>
+      <th style="width:5%;"></th>
     </tr></thead><tbody>
     ${cabLines.map((l,i)=>`<tr>
       <td style="padding:0;text-align:center;vertical-align:middle;">
         <button onclick="cabMoveLine(${i},-1)" ${i===0?'disabled':''} style="display:block;width:18px;height:14px;padding:0;margin:0 auto 1px;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===0?'opacity:.2;':''}">▲</button>
         <button onclick="cabMoveLine(${i},1)" ${i===cabLines.length-1?'disabled':''} style="display:block;width:18px;height:14px;padding:0;margin:0 auto;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===cabLines.length-1?'opacity:.2;':''}">▼</button>
       </td>
-      <td style="padding:3px 4px;"><input value="${fe(l.pe)}" style="width:100%;font-family:monospace;font-size:10px;padding:4px 3px;box-sizing:border-box;"
+      <td style="padding:3px 4px;overflow:hidden;"><input value="${fe(l.pe)}" style="width:100%;font-family:monospace;font-size:10px;padding:4px 2px;box-sizing:border-box;"
         oninput="cabLines[${i}].pe=this.value"/></td>
-      <td style="padding:3px 4px;"><input value="${fe(l.desCab)}" style="width:100%;font-weight:700;font-size:14px;padding:5px 6px;box-sizing:border-box;"
+      <td style="padding:3px 4px;"><input value="${fe(l.desCab)}" style="width:100%;font-weight:700;font-size:14px;padding:5px 4px;box-sizing:border-box;"
         oninput="cabLines[${i}].desCab=this.value"/></td>
-      <td style="padding:3px 2px;" class="r"><input type="number" value="${l.qty}" min="1"
-        style="width:100%;text-align:center;font-weight:800;font-size:13px;padding:4px 2px;box-sizing:border-box;"
+      <td style="padding:3px 2px;overflow:hidden;" class="r"><input type="number" value="${l.qty}" min="1"
+        style="width:100%;text-align:center;font-weight:800;font-size:13px;padding:4px 1px;box-sizing:border-box;"
         oninput="cabLines[${i}].qty=Math.max(1,parseInt(this.value)||1);factuRenderTotals('cab')"/></td>
-      <td style="padding:3px 2px;" class="r"><input type="number" value="${l.puCab.toFixed(2)}" min="0" step="0.01"
-        style="width:100%;text-align:center;font-weight:800;font-size:13px;padding:4px 2px;box-sizing:border-box;"
+      <td style="padding:3px 2px;overflow:hidden;" class="r"><input type="number" value="${l.puCab.toFixed(2)}" min="0" step="0.01"
+        style="width:100%;text-align:center;font-weight:800;font-size:13px;padding:4px 1px;box-sizing:border-box;"
         oninput="cabLines[${i}].puCab=Math.max(0,parseFloat(this.value.replace(',','.'))||0);factuRenderTotals('cab')"/></td>
-      <td class="r bold" id="cmt-${i}" style="font-size:12px;padding:3px 4px;white-space:nowrap;">${mny(l.qty*l.puCab)}</td>
-      <td style="padding:2px 2px;"><button onclick="cabLines.splice(${i},1);renderCabLines()" class="btn-del" style="font-size:13px;">✕</button></td>
+      <td class="r bold" id="cmt-${i}" style="font-size:12px;padding:3px 4px;overflow:hidden;">${mny(l.qty*l.puCab)}</td>
+      <td style="padding:2px;"><button onclick="cabLines.splice(${i},1);renderCabLines()" class="btn-del" style="font-size:13px;">✕</button></td>
     </tr>`).join('')}
     </tbody></table></div>`;
   factuRenderTotals('cab');
