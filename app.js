@@ -3957,11 +3957,11 @@ function magBuildPreviewHtml(type){
     var ht=magLines.reduce(function(s,l){return s+Number(l.qty)*Number(l.pu);},0);
     var remiseMt=ht*remisePct/100;var htR=ht-remiseMt;var net=htR+port;
     if(isDelivery){
-      var hasLivre=magLines.some(function(l){return (l.livre||0)>0;});
       linesHtml=magLines.map(function(l){
         var liv=l.livre||0; var rest=(l.qty||0)-liv;
-        var livCell=hasLivre?('<td class="r" style="color:#1565c0;font-weight:700;">'+liv+'</td><td class="r" style="color:'+(rest>0?'#c62828':'#2d6a2d')+';font-weight:700;">'+(rest>0?rest:'✓')+'</td>'):'<td class="r">□</td>';
-        return '<tr><td class="mono">'+fe(l.ref)+'</td><td>'+fe(l.nom)+'</td><td>'+(fe(l.couleur)||'—')+'</td><td>'+(fe(l.taille)||'—')+'</td><td>'+(fe(l.grammage)||'—')+'</td><td class="r"><strong>'+l.qty+'</strong></td>'+livCell+'</tr>';
+        var livTd='<td class="r" style="color:#1565c0;font-weight:700;">'+(liv>0?liv:'□')+'</td>';
+        var restTd='<td class="r" style="font-weight:700;color:'+(rest>0?'#c62828':'#2d6a2d')+'">'+(rest>0?rest:'✓')+'</td>';
+        return '<tr><td class="mono">'+fe(l.ref)+'</td><td>'+fe(l.nom)+'</td><td>'+(fe(l.couleur)||'—')+'</td><td>'+(fe(l.taille)||'—')+'</td><td>'+(fe(l.grammage)||'—')+'</td><td class="r"><strong>'+l.qty+'</strong></td>'+livTd+restTd+'</tr>';
       }).join('');
     } else {
       linesHtml=magLines.map(function(l){return '<tr><td class="mono">'+fe(l.ref)+'</td><td>'+fe(l.nom)+'</td><td>'+(fe(l.couleur)||'—')+'</td><td>'+(fe(l.taille)||'—')+'</td><td>'+(fe(l.grammage)||'—')+'</td><td class="r">'+l.qty+'</td><td class="r">'+mny(l.pu)+'</td><td class="r"><strong>'+mny(Number(l.qty)*Number(l.pu))+'</strong></td></tr>';}).join('');
@@ -3973,12 +3973,11 @@ function magBuildPreviewHtml(type){
         +'<tr class="grand"><td>Total net à payer</td><td class="r">'+mny(net)+'</td></tr>';
     }
   } else {
-    var _span=isDelivery?7:8;
+    var _span=isDelivery?8:8;
     linesHtml='<tr><td colspan="'+_span+'" style="text-align:center;color:#aaa;padding:18px;font-style:italic;font-size:10px;">— Importez une commande pour voir les lignes de la facture —</td></tr>';
   }
   var thInvoice='<th>Réf. produit</th><th>Nom produit</th><th>Couleur</th><th>Taille</th><th>Grammage</th><th class="r">Qté</th><th class="r">PU HT&nbsp;(€)</th><th class="r">Montant HT&nbsp;(€)</th>';
-  var _hasLivre2=magLines.some(function(l){return (l.livre||0)>0;});
-  var thDelivery='<th>Réf. produit</th><th>Nom produit</th><th>Couleur</th><th>Taille</th><th>Grammage</th><th class="r">Qté commandée</th>'+(_hasLivre2?'<th class="r">Livré</th><th class="r">Restant</th>':'<th class="r">Qté livrée</th>');
+  var thDelivery='<th>Réf. produit</th><th>Nom produit</th><th>Couleur</th><th>Taille</th><th>Grammage</th><th class="r">Qté commandée</th><th class="r" style="color:#1565c0;">Qté livrée</th><th class="r" style="color:#c62828;">Qté restante</th>';
   return '<!doctype html><html><head><meta charset="utf-8">'+printCSS()+'</head><body>'
     +'<div class="header"><div class="from"><h1>'+fe(FL.name)+'</h1><p>'+fe(FL.address)+'</p><p>Tél&nbsp;: '+fe(FL.phone)+' — Mobile&nbsp;: '+fe(FL.mobile)+'</p><p>'+fe(FL.email)+'</p><p>SIRET&nbsp;: '+fe(FL.siret)+'</p></div>'
     +'<div class="docinfo"><h2>'+(isDelivery?'BON DE LIVRAISON':'FACTURE')+'</h2>'
