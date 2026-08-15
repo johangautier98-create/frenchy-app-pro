@@ -2560,6 +2560,7 @@ let magClient = null;
 let cabClient = null;
 let magCurrentInvoiceId = null;
 let cabCurrentInvoiceId = null;
+let _magShowLivre = true;
 
 // ── NAVIGATION ────────────────────────────────────────────────────────
 function showFactuTab(name){
@@ -2714,7 +2715,7 @@ window.histoReopen = function(id){
   if(typeof lignes==='string'){try{lignes=JSON.parse(lignes);}catch(e){lignes=[];}}
   if(Array.isArray(lignes)&&lignes.length){
     if(mode==='mag'){
-      magLines=lignes.map(function(l){return{ref:l.ref||'',nom:l.nom||'',couleur:l.couleur||'',taille:l.taille||'',grammage:l.grammage||'',qty:Number(l.qty)||1,pu:Number(l.pu)||0,pe:'',desCab:'',puCab:0};});
+      magLines=lignes.map(function(l){return{ref:l.ref||'',ean:l.ean||'',nom:l.nom||'',couleur:l.couleur||'',taille:l.taille||'',grammage:l.grammage||'',qty:Number(l.qty)||1,pu:Number(l.pu)||0,livre:Number(l.livre)||0,pe:'',desCab:'',puCab:0};});
       if(typeof renderMagLines==='function')renderMagLines();
     } else {
       cabLines=lignes.map(function(l){return{ref:l.ref||'',pe:l.ref||'',desCab:l.nom||'',nom:l.nom||'',couleur:'',taille:'',grammage:'',qty:Number(l.qty)||1,pu:0,puCab:Number(l.pu)||0};});
@@ -3638,6 +3639,10 @@ function factuClear(mode){
   else { cabLines=[]; cabCurrentInvoiceId=null; renderCabLines(); }
   const btn=document.getElementById((mode==='mag'?'mag':'cab')+'-go-print');
   if(btn) btn.classList.remove('visible');
+  // Réinitialiser le numéro et auto-remplir le suivant
+  const numEl=document.getElementById(mode+'-inv-num');
+  if(numEl) numEl.value='';
+  autoFillInvNum(mode);
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────
@@ -3684,50 +3689,72 @@ function renderMagLines(){
     const gp=document.getElementById('mag-go-print'); if(gp) gp.classList.remove('visible');
     return;
   }
-  box.innerHTML=`<div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:480px;table-layout:fixed;">
+  const livreCols = _magShowLivre ? `<col style="width:50px"><col style="width:58px">` : '';
+  const livreHeaders = _magShowLivre
+    ? `<th class="r" style="font-size:10px;color:#1565c0;font-weight:800;">Livré</th><th class="r" style="font-size:10px;color:#c62828;font-weight:800;">Restant</th>`
+    : '';
+  box.innerHTML=`<div style="margin-bottom:6px;">
+    <button onclick="magToggleLivre()" style="padding:4px 12px;background:${_magShowLivre?'#1565c0':'#555'};color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;">
+      ${_magShowLivre?'✖ Masquer Livré / Restant':'➕ Afficher Livré / Restant'}
+    </button>
+  </div>
+  <div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:780px;table-layout:fixed;">
     <colgroup>
-      <col style="width:20px">
-      <col style="width:80px">
-      <col>
-      <col style="width:52px">
-      <col style="width:36px">
-      <col style="width:42px">
-      <col style="width:34px">
-      <col style="width:50px">
-      <col style="width:58px">
       <col style="width:22px">
+      <col style="width:108px">
+      <col>
+      <col style="width:82px">
+      <col style="width:54px">
+      <col style="width:50px">
+      <col style="width:44px">
+      ${livreCols}
+      <col style="width:60px">
+      <col style="width:68px">
+      <col style="width:24px">
     </colgroup>
     <thead><tr>
       <th style="padding:4px 0;"></th>
       <th style="font-size:10px;">Réf. produit</th>
-      <th>Nom produit</th>
+      <th style="font-size:11px;">Nom produit</th>
       <th style="font-size:10px;">Couleur</th>
       <th style="font-size:10px;">Taille</th>
       <th style="font-size:10px;">Grammage</th>
       <th class="r" style="font-size:10px;">Qté</th>
+      ${livreHeaders}
       <th class="r" style="font-size:10px;">PU HT&nbsp;€</th>
       <th class="r" style="font-size:10px;">Montant&nbsp;€</th>
       <th></th>
     </tr></thead><tbody>
-    ${magLines.map((l,i)=>`<tr>
-      <td style="padding:0;text-align:center;vertical-align:middle;">
-        <button onclick="magMoveLine(${i},-1)" ${i===0?'disabled':''} style="display:block;width:18px;height:14px;padding:0;margin:0 auto 1px;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===0?'opacity:.2;':''}">▲</button>
-        <button onclick="magMoveLine(${i},1)" ${i===magLines.length-1?'disabled':''} style="display:block;width:18px;height:14px;padding:0;margin:0 auto;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===magLines.length-1?'opacity:.2;':''}">▼</button>
-      </td>
-      <td class="mono" style="padding:3px 4px;"><input value="${fe(l.ref)}" style="width:100%;font-family:monospace;font-size:11px;padding:4px 4px;box-sizing:border-box;" oninput="magLines[${i}].ref=this.value"/></td>
-      <td style="padding:3px 4px;"><input value="${fe(l.nom)}" style="width:100%;font-weight:700;font-size:13px;padding:5px 6px;box-sizing:border-box;" oninput="magLines[${i}].nom=this.value"/></td>
-      <td style="padding:3px 3px;"><input value="${fe(l.couleur)}" style="width:100%;font-size:11px;padding:4px 3px;box-sizing:border-box;" oninput="magLines[${i}].couleur=this.value"/></td>
-      <td style="padding:3px 2px;"><input value="${fe(l.taille)}" style="width:100%;font-size:11px;padding:4px 3px;box-sizing:border-box;" oninput="magLines[${i}].taille=this.value"/></td>
-      <td style="padding:3px 2px;"><input value="${fe(l.grammage)}" style="width:100%;font-size:11px;padding:4px 3px;box-sizing:border-box;" oninput="magLines[${i}].grammage=this.value"/></td>
-      <td class="r" style="padding:3px 2px;"><input type="number" value="${l.qty}" min="1"
-        style="width:100%;text-align:center;font-weight:800;font-size:13px;padding:4px 2px;box-sizing:border-box;"
-        oninput="magLines[${i}].qty=Math.max(1,parseInt(this.value)||1);factuRenderTotals('mag')"/></td>
-      <td class="r" style="padding:3px 2px;"><input type="number" value="${l.pu.toFixed(2)}" min="0" step="0.01"
-        style="width:100%;text-align:center;font-weight:800;font-size:13px;padding:4px 2px;box-sizing:border-box;"
-        oninput="magLines[${i}].pu=Math.max(0,parseFloat(this.value.replace(',','.'))||0);factuRenderTotals('mag')"/></td>
-      <td class="r bold" id="mmt-${i}" style="font-size:12px;padding:3px 4px;white-space:nowrap;">${mny(l.qty*l.pu)}</td>
-      <td style="padding:2px 2px;"><button onclick="magLines.splice(${i},1);renderMagLines()" class="btn-del" style="font-size:13px;">✕</button></td>
-    </tr>`).join('')}
+    ${magLines.map((l,i)=>{
+      const rest=(l.qty||0)-(l.livre||0);
+      const restCol=rest>0?'#c62828':rest<0?'#e65100':'#2d6a2d';
+      const livreCells=_magShowLivre?`
+        <td class="r" style="padding:3px 2px;"><input type="number" value="${l.livre||0}" min="0"
+          style="width:100%;text-align:center;font-weight:800;font-size:12px;padding:4px 2px;box-sizing:border-box;color:#1565c0;"
+          oninput="magLines[${i}].livre=Math.max(0,parseInt(this.value)||0);magUpdateRest(${i})"/></td>
+        <td class="r" id="mrest-${i}" style="font-size:13px;font-weight:800;padding:3px 4px;color:${restCol};">${rest}</td>`
+        :'';
+      return `<tr>
+        <td style="padding:0;text-align:center;vertical-align:middle;">
+          <button onclick="magMoveLine(${i},-1)" ${i===0?'disabled':''} style="display:block;width:18px;height:14px;padding:0;margin:0 auto 1px;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===0?'opacity:.2;':''}">▲</button>
+          <button onclick="magMoveLine(${i},1)" ${i===magLines.length-1?'disabled':''} style="display:block;width:18px;height:14px;padding:0;margin:0 auto;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===magLines.length-1?'opacity:.2;':''}">▼</button>
+        </td>
+        <td class="mono" style="padding:3px 4px;overflow:hidden;"><input value="${fe(l.ref)}" style="width:100%;font-family:monospace;font-size:10px;padding:4px 3px;box-sizing:border-box;" oninput="magLines[${i}].ref=this.value"/></td>
+        <td style="padding:3px 4px;"><input value="${fe(l.nom)}" style="width:100%;font-weight:700;font-size:13px;padding:5px 5px;box-sizing:border-box;" oninput="magLines[${i}].nom=this.value"/></td>
+        <td style="padding:3px 3px;overflow:hidden;"><input value="${fe(l.couleur)}" style="width:100%;font-size:11px;padding:4px 3px;box-sizing:border-box;" oninput="magLines[${i}].couleur=this.value"/></td>
+        <td style="padding:3px 2px;overflow:hidden;"><input value="${fe(l.taille)}" style="width:100%;font-size:11px;padding:4px 3px;box-sizing:border-box;" oninput="magLines[${i}].taille=this.value"/></td>
+        <td style="padding:3px 2px;overflow:hidden;"><input value="${fe(l.grammage)}" style="width:100%;font-size:11px;padding:4px 3px;box-sizing:border-box;" oninput="magLines[${i}].grammage=this.value"/></td>
+        <td class="r" style="padding:3px 2px;overflow:hidden;"><input type="number" value="${l.qty}" min="1"
+          style="width:100%;text-align:center;font-weight:800;font-size:13px;padding:4px 2px;box-sizing:border-box;"
+          oninput="magLines[${i}].qty=Math.max(1,parseInt(this.value)||1);magUpdateRest(${i});factuRenderTotals('mag')"/></td>
+        ${livreCells}
+        <td class="r" style="padding:3px 2px;overflow:hidden;"><input type="number" value="${l.pu.toFixed(2)}" min="0" step="0.01"
+          style="width:100%;text-align:center;font-weight:800;font-size:13px;padding:4px 2px;box-sizing:border-box;"
+          oninput="magLines[${i}].pu=Math.max(0,parseFloat(this.value.replace(',','.'))||0);factuRenderTotals('mag')"/></td>
+        <td class="r bold" id="mmt-${i}" style="font-size:12px;padding:3px 4px;white-space:nowrap;">${mny(l.qty*l.pu)}</td>
+        <td style="padding:2px 2px;"><button onclick="magLines.splice(${i},1);renderMagLines()" class="btn-del" style="font-size:13px;">✕</button></td>
+      </tr>`;
+    }).join('')}
     </tbody></table></div>
     <button onclick="magAddLine()" style="margin-top:10px;padding:8px 18px;background:#2d6a2d;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:13px;">➕ Ajouter une ligne</button>`;
   factuRenderTotals('mag');
@@ -3735,7 +3762,7 @@ function renderMagLines(){
   magUpdatePreview(_magPreviewType||'invoice');
 }
 window.magAddLine = function(){
-  magLines.push({ref:'',nom:'',couleur:'',taille:'',grammage:'',qty:1,pu:0,pe:'',desCab:'',puCab:0});
+  magLines.push({ref:'',nom:'',couleur:'',taille:'',grammage:'',qty:1,pu:0,livre:0,pe:'',desCab:'',puCab:0});
   renderMagLines();
   setTimeout(function(){
     var tds = document.querySelectorAll('#mag-lines tbody tr:last-child td');
@@ -3747,6 +3774,19 @@ window.magMoveLine = function(i, dir){
   if(j < 0 || j >= magLines.length) return;
   var tmp = magLines[i]; magLines[i] = magLines[j]; magLines[j] = tmp;
   renderMagLines();
+};
+window.magToggleLivre = function(){
+  _magShowLivre = !_magShowLivre;
+  renderMagLines();
+};
+window.magUpdateRest = function(i){
+  var l = magLines[i]; if(!l) return;
+  var rest = (l.qty||0) - (l.livre||0);
+  var el = document.getElementById('mrest-'+i);
+  if(el){
+    el.textContent = rest;
+    el.style.color = rest > 0 ? '#c62828' : rest < 0 ? '#e65100' : '#2d6a2d';
+  }
 };
 
 // ── RENDU LIGNES CABESTO ──────────────────────────────────────────────
@@ -3822,7 +3862,7 @@ function factuRenderTotals(mode){
       <div class="total-row tva"><span>TVA non applicable (Art. 293 B CGI)</span><span>0,00&nbsp;€</span></div>
       <div class="total-row grand"><span>Total net à payer</span><span>${mny(net)}</span></div>`;
   }
-  if(mode==='mag') lines.forEach((l,i)=>{const e=document.getElementById('mmt-'+i);if(e)e.textContent=mny(Number(l.qty)*Number(l.pu));});
+  if(mode==='mag') lines.forEach((l,i)=>{const e=document.getElementById('mmt-'+i);if(e)e.textContent=mny(Number(l.qty)*Number(l.pu));magUpdateRest(i);});
   else lines.forEach((l,i)=>{const e=document.getElementById('cmt-'+i);if(e)e.textContent=mny(Number(l.qty)*Number(l.puCab));});
   if(mode==='mag') setTimeout(function(){magUpdatePreview(_magPreviewType||'invoice');},50);
 }
@@ -4073,7 +4113,7 @@ function flV35GetProductFromLine(l){if(!l)return null;if(l.ref&&typeof CATALOGUE
 function flV35SyncFactuToCommandes(mode, lines, existingResults){const results=[];(existingResults||[]).forEach(r=>{if(r&&r.matched&&r.product)results.push(r);});(lines||[]).forEach(l=>{const p=flV35GetProductFromLine(l);if(!p)return;if(results.some(r=>r.product&&r.product.ref===p.ref))return;results.push({matched:true,product:p,qty:parseInt(l.qty)||1,line:(mode==='cab'?(l.pe||l.ref||'')+' '+(l.desCab||l.nom||''):(l.ref||'')+' '+(l.nom||''))});});if(results.length){orderResults=results;try{renderOrderResults();}catch(e){console.warn('V35 render commandes',e);}const tab=document.getElementById('tab-commande');if(tab){tab.classList.add('fl-v35-pulse');setTimeout(()=>tab.classList.remove('fl-v35-pulse'),3500);}const st=document.getElementById((mode==='mag'?'mag':'cab')+'-import-status');if(st)st.textContent+=' — codes-barres préparés dans Commandes';}}
 
 function magPrint(t){const h=magGenDoc(t);if(!h)return;const w=window.open('','_blank');w.document.open();w.document.write(h);w.document.close();_magArchive(t);}
-function _magArchive(t){try{var c=magClient||{name:(document.getElementById('mag-client-sel')||{options:[{text:''}]}).options[(document.getElementById('mag-client-sel')||{selectedIndex:0}).selectedIndex]?.text||'Magasin non sélectionné',email:'',address:''};var num=(document.getElementById('mag-inv-num')||{}).value||'';var date=(document.getElementById('mag-inv-date')||{}).value||todayISO();var oref=(document.getElementById('mag-order-ref')||{}).value||'';var port=parseFloat((document.getElementById('mag-port')||{value:0}).value)||0;var remisePct=parseFloat((document.getElementById('mag-remise')||{value:0}).value)||0;var ht=magLines.reduce(function(s,l){return s+Number(l.qty)*Number(l.pu);},0);var remiseMt=ht*remisePct/100;var total=ht-remiseMt+port;archiveFacture({invoiceId:magCurrentInvoiceId,num:num,typeDoc:t==='delivery'?'bon_livraison':'facture',typeClient:'magasin',clientNom:c.name||'',clientEmail:c.email||'',clientAdresse:(c.address||'').replace(/\n/g,' '),date:date,refCmd:oref,ht:ht,port:port,remisePct:remisePct,remiseMt:remiseMt,total:total,lignes:magLines.map(function(l){return{ref:l.ref,nom:l.nom,couleur:l.couleur,taille:l.taille,grammage:l.grammage,qty:l.qty,pu:l.pu};})});}catch(e){console.warn(e);}}
+function _magArchive(t){try{var c=magClient||{name:(document.getElementById('mag-client-sel')||{options:[{text:''}]}).options[(document.getElementById('mag-client-sel')||{selectedIndex:0}).selectedIndex]?.text||'Magasin non sélectionné',email:'',address:''};var num=(document.getElementById('mag-inv-num')||{}).value||'';var date=(document.getElementById('mag-inv-date')||{}).value||todayISO();var oref=(document.getElementById('mag-order-ref')||{}).value||'';var port=parseFloat((document.getElementById('mag-port')||{value:0}).value)||0;var remisePct=parseFloat((document.getElementById('mag-remise')||{value:0}).value)||0;var ht=magLines.reduce(function(s,l){return s+Number(l.qty)*Number(l.pu);},0);var remiseMt=ht*remisePct/100;var total=ht-remiseMt+port;archiveFacture({invoiceId:magCurrentInvoiceId,num:num,typeDoc:t==='delivery'?'bon_livraison':'facture',typeClient:'magasin',clientNom:c.name||'',clientEmail:c.email||'',clientAdresse:(c.address||'').replace(/\n/g,' '),date:date,refCmd:oref,ht:ht,port:port,remisePct:remisePct,remiseMt:remiseMt,total:total,lignes:magLines.map(function(l){return{ref:l.ref,ean:l.ean||'',nom:l.nom,couleur:l.couleur,taille:l.taille,grammage:l.grammage,qty:l.qty,pu:l.pu,livre:l.livre||0};})});}catch(e){console.warn(e);}}
 function magDownload(t){
   const h=magGenDoc(t); if(!h) return;
   const num=(document.getElementById('mag-inv-num')||{}).value||'FL-2026-001';
