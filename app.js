@@ -2561,6 +2561,9 @@ let cabClient = null;
 let magCurrentInvoiceId = null;
 let cabCurrentInvoiceId = null;
 let _magShowLivre = true;
+let _magShowRestant = true;
+let _magColWidths = {};
+var _magColResizing = null;
 
 // ── NAVIGATION ────────────────────────────────────────────────────────
 function showFactuTab(name){
@@ -3689,51 +3692,54 @@ function renderMagLines(){
     const gp=document.getElementById('mag-go-print'); if(gp) gp.classList.remove('visible');
     return;
   }
-  const livreCols = _magShowLivre ? `<col style="width:50px"><col style="width:58px">` : '';
-  const livreHeaders = _magShowLivre
-    ? `<th class="r" style="font-size:10px;color:#1565c0;font-weight:800;">Livré</th><th class="r" style="font-size:10px;color:#c62828;font-weight:800;">Restant</th>`
-    : '';
-  box.innerHTML=`<div style="margin-bottom:6px;">
-    <button onclick="magToggleLivre()" style="padding:4px 12px;background:${_magShowLivre?'#1565c0':'#555'};color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;">
-      ${_magShowLivre?'✖ Masquer Livré / Restant':'➕ Afficher Livré / Restant'}
-    </button>
+  if(!document.getElementById('_mcss')){var _s=document.createElement('style');_s.id='_mcss';_s.textContent='.mcr{position:relative;user-select:none}.mcr-h{position:absolute;right:-2px;top:0;bottom:0;width:5px;cursor:col-resize;z-index:2}.mcr-h:hover,.mcr-h.dragging{background:rgba(100,149,237,.7);border-radius:2px}';document.head.appendChild(_s);}
+  const _cw=k=>(_magColWidths[k]||{ref:108,couleur:82,taille:54,grammage:50,qty:44,livre:50,restant:58,pu:60,montant:68}[k]);
+  const _cs=k=>{const v=_cw(k);return v?`width:${v}px`:'';};
+  box.innerHTML=`<div style="margin-bottom:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <span style="font-size:11px;color:#888;font-weight:700;">Colonnes&nbsp;:</span>
+    <button onclick="magToggleLivre()" title="${_magShowLivre?'Masquer':'Afficher'} la colonne Livré"
+      style="padding:4px 11px;background:${_magShowLivre?'#1565c0':'#444'};color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;">
+      ${_magShowLivre?'✖':'+'}&nbsp;Livré</button>
+    <button onclick="magToggleRestant()" title="${_magShowRestant?'Masquer':'Afficher'} la colonne Restant"
+      style="padding:4px 11px;background:${_magShowRestant?'#c62828':'#444'};color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;">
+      ${_magShowRestant?'✖':'+'}&nbsp;Restant</button>
   </div>
-  <div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:780px;table-layout:fixed;">
+  <div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" id="mft" style="width:100%;min-width:700px;table-layout:fixed;">
     <colgroup>
       <col style="width:22px">
-      <col style="width:108px">
-      <col>
-      <col style="width:82px">
-      <col style="width:54px">
-      <col style="width:50px">
-      <col style="width:44px">
-      ${livreCols}
-      <col style="width:60px">
-      <col style="width:68px">
+      <col id="mc-ref" style="${_cs('ref')}">
+      <col id="mc-nom">
+      <col id="mc-couleur" style="${_cs('couleur')}">
+      <col id="mc-taille" style="${_cs('taille')}">
+      <col id="mc-grammage" style="${_cs('grammage')}">
+      <col id="mc-qty" style="${_cs('qty')}">
+      ${_magShowLivre?`<col id="mc-livre" style="${_cs('livre')}">` : ''}
+      ${_magShowRestant?`<col id="mc-restant" style="${_cs('restant')}">` : ''}
+      <col id="mc-pu" style="${_cs('pu')}">
+      <col id="mc-montant" style="${_cs('montant')}">
       <col style="width:24px">
     </colgroup>
     <thead><tr>
       <th style="padding:4px 0;"></th>
-      <th style="font-size:10px;">Réf. produit</th>
-      <th style="font-size:11px;">Nom produit</th>
-      <th style="font-size:10px;">Couleur</th>
-      <th style="font-size:10px;">Taille</th>
-      <th style="font-size:10px;">Grammage</th>
-      <th class="r" style="font-size:10px;">Qté</th>
-      ${livreHeaders}
-      <th class="r" style="font-size:10px;">PU HT&nbsp;€</th>
-      <th class="r" style="font-size:10px;">Montant&nbsp;€</th>
+      <th class="mcr" style="font-size:10px;">Réf. produit<span class="mcr-h" onmousedown="magCRS(event,'ref')"></span></th>
+      <th class="mcr" style="font-size:11px;">Nom produit<span class="mcr-h" onmousedown="magCRS(event,'nom')"></span></th>
+      <th class="mcr" style="font-size:10px;">Couleur<span class="mcr-h" onmousedown="magCRS(event,'couleur')"></span></th>
+      <th class="mcr" style="font-size:10px;">Taille<span class="mcr-h" onmousedown="magCRS(event,'taille')"></span></th>
+      <th class="mcr" style="font-size:10px;">Grammage<span class="mcr-h" onmousedown="magCRS(event,'grammage')"></span></th>
+      <th class="mcr r" style="font-size:10px;">Qté<span class="mcr-h" onmousedown="magCRS(event,'qty')"></span></th>
+      ${_magShowLivre?`<th class="mcr r" style="font-size:10px;color:#1565c0;font-weight:800;">Livré<span class="mcr-h" onmousedown="magCRS(event,'livre')"></span></th>`:''}
+      ${_magShowRestant?`<th class="mcr r" style="font-size:10px;color:#c62828;font-weight:800;">Restant<span class="mcr-h" onmousedown="magCRS(event,'restant')"></span></th>`:''}
+      <th class="mcr r" style="font-size:10px;">PU HT&nbsp;€<span class="mcr-h" onmousedown="magCRS(event,'pu')"></span></th>
+      <th class="mcr r" style="font-size:10px;">Montant&nbsp;€<span class="mcr-h" onmousedown="magCRS(event,'montant')"></span></th>
       <th></th>
     </tr></thead><tbody>
     ${magLines.map((l,i)=>{
       const rest=(l.qty||0)-(l.livre||0);
       const restCol=rest>0?'#c62828':rest<0?'#e65100':'#2d6a2d';
-      const livreCells=_magShowLivre?`
-        <td class="r" style="padding:3px 2px;"><input type="number" value="${l.livre||0}" min="0"
+      const livreTd=_magShowLivre?`<td class="r" style="padding:3px 2px;overflow:hidden;"><input type="number" value="${l.livre||0}" min="0"
           style="width:100%;text-align:center;font-weight:800;font-size:12px;padding:4px 2px;box-sizing:border-box;color:#1565c0;"
-          oninput="magLines[${i}].livre=Math.max(0,parseInt(this.value)||0);magUpdateRest(${i})"/></td>
-        <td class="r" id="mrest-${i}" style="font-size:13px;font-weight:800;padding:3px 4px;color:${restCol};">${rest}</td>`
-        :'';
+          oninput="magLines[${i}].livre=Math.max(0,parseInt(this.value)||0);magUpdateRest(${i})"/></td>`:'';
+      const restantTd=_magShowRestant?`<td class="r" id="mrest-${i}" style="font-size:13px;font-weight:800;padding:3px 4px;color:${restCol};">${rest}</td>`:'';
       return `<tr>
         <td style="padding:0;text-align:center;vertical-align:middle;">
           <button onclick="magMoveLine(${i},-1)" ${i===0?'disabled':''} style="display:block;width:18px;height:14px;padding:0;margin:0 auto 1px;background:#555;color:#fff;border:none;border-radius:2px;cursor:pointer;font-size:9px;line-height:1;${i===0?'opacity:.2;':''}">▲</button>
@@ -3747,7 +3753,7 @@ function renderMagLines(){
         <td class="r" style="padding:3px 2px;overflow:hidden;"><input type="number" value="${l.qty}" min="1"
           style="width:100%;text-align:center;font-weight:800;font-size:13px;padding:4px 2px;box-sizing:border-box;"
           oninput="magLines[${i}].qty=Math.max(1,parseInt(this.value)||1);magUpdateRest(${i});factuRenderTotals('mag')"/></td>
-        ${livreCells}
+        ${livreTd}${restantTd}
         <td class="r" style="padding:3px 2px;overflow:hidden;"><input type="number" value="${l.pu.toFixed(2)}" min="0" step="0.01"
           style="width:100%;text-align:center;font-weight:800;font-size:13px;padding:4px 2px;box-sizing:border-box;"
           oninput="magLines[${i}].pu=Math.max(0,parseFloat(this.value.replace(',','.'))||0);factuRenderTotals('mag')"/></td>
@@ -3775,18 +3781,34 @@ window.magMoveLine = function(i, dir){
   var tmp = magLines[i]; magLines[i] = magLines[j]; magLines[j] = tmp;
   renderMagLines();
 };
-window.magToggleLivre = function(){
-  _magShowLivre = !_magShowLivre;
-  renderMagLines();
-};
+window.magToggleLivre = function(){ _magShowLivre = !_magShowLivre; renderMagLines(); };
+window.magToggleRestant = function(){ _magShowRestant = !_magShowRestant; renderMagLines(); };
 window.magUpdateRest = function(i){
   var l = magLines[i]; if(!l) return;
   var rest = (l.qty||0) - (l.livre||0);
-  var el = document.getElementById('mrest-'+i);
-  if(el){
-    el.textContent = rest;
-    el.style.color = rest > 0 ? '#c62828' : rest < 0 ? '#e65100' : '#2d6a2d';
+  if(_magShowRestant){ var el=document.getElementById('mrest-'+i); if(el){el.textContent=rest;el.style.color=rest>0?'#c62828':rest<0?'#e65100':'#2d6a2d';} }
+};
+window.magCRS = function(e, colKey){
+  e.preventDefault();
+  var th=e.target.closest('th');
+  var startW=th?th.getBoundingClientRect().width:80;
+  _magColResizing={colKey,startX:e.clientX,startW};
+  e.target.classList.add('dragging');
+  function onMove(ev){
+    if(!_magColResizing)return;
+    var newW=Math.max(30,_magColResizing.startW+(ev.clientX-_magColResizing.startX));
+    _magColWidths[_magColResizing.colKey]=newW;
+    var col=document.getElementById('mc-'+_magColResizing.colKey);
+    if(col)col.style.width=newW+'px';
   }
+  function onUp(){
+    document.querySelectorAll('.mcr-h.dragging').forEach(function(el){el.classList.remove('dragging');});
+    _magColResizing=null;
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+  }
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('mouseup',onUp);
 };
 
 // ── RENDU LIGNES CABESTO ──────────────────────────────────────────────
@@ -3935,7 +3957,12 @@ function magBuildPreviewHtml(type){
     var ht=magLines.reduce(function(s,l){return s+Number(l.qty)*Number(l.pu);},0);
     var remiseMt=ht*remisePct/100;var htR=ht-remiseMt;var net=htR+port;
     if(isDelivery){
-      linesHtml=magLines.map(function(l){return '<tr><td class="mono">'+fe(l.ref)+'</td><td>'+fe(l.nom)+'</td><td>'+(fe(l.couleur)||'—')+'</td><td>'+(fe(l.taille)||'—')+'</td><td>'+(fe(l.grammage)||'—')+'</td><td class="r"><strong>'+l.qty+'</strong></td><td class="r">□</td></tr>';}).join('');
+      var hasLivre=magLines.some(function(l){return (l.livre||0)>0;});
+      linesHtml=magLines.map(function(l){
+        var liv=l.livre||0; var rest=(l.qty||0)-liv;
+        var livCell=hasLivre?('<td class="r" style="color:#1565c0;font-weight:700;">'+liv+'</td><td class="r" style="color:'+(rest>0?'#c62828':'#2d6a2d')+';font-weight:700;">'+(rest>0?rest:'✓')+'</td>'):'<td class="r">□</td>';
+        return '<tr><td class="mono">'+fe(l.ref)+'</td><td>'+fe(l.nom)+'</td><td>'+(fe(l.couleur)||'—')+'</td><td>'+(fe(l.taille)||'—')+'</td><td>'+(fe(l.grammage)||'—')+'</td><td class="r"><strong>'+l.qty+'</strong></td>'+livCell+'</tr>';
+      }).join('');
     } else {
       linesHtml=magLines.map(function(l){return '<tr><td class="mono">'+fe(l.ref)+'</td><td>'+fe(l.nom)+'</td><td>'+(fe(l.couleur)||'—')+'</td><td>'+(fe(l.taille)||'—')+'</td><td>'+(fe(l.grammage)||'—')+'</td><td class="r">'+l.qty+'</td><td class="r">'+mny(l.pu)+'</td><td class="r"><strong>'+mny(Number(l.qty)*Number(l.pu))+'</strong></td></tr>';}).join('');
       linesHtml+='</tbody></table><table class="tot"><tbody>'
@@ -3950,7 +3977,8 @@ function magBuildPreviewHtml(type){
     linesHtml='<tr><td colspan="'+_span+'" style="text-align:center;color:#aaa;padding:18px;font-style:italic;font-size:10px;">— Importez une commande pour voir les lignes de la facture —</td></tr>';
   }
   var thInvoice='<th>Réf. produit</th><th>Nom produit</th><th>Couleur</th><th>Taille</th><th>Grammage</th><th class="r">Qté</th><th class="r">PU HT&nbsp;(€)</th><th class="r">Montant HT&nbsp;(€)</th>';
-  var thDelivery='<th>Réf. produit</th><th>Nom produit</th><th>Couleur</th><th>Taille</th><th>Grammage</th><th class="r">Qté commandée</th><th class="r">Qté livrée</th>';
+  var _hasLivre2=magLines.some(function(l){return (l.livre||0)>0;});
+  var thDelivery='<th>Réf. produit</th><th>Nom produit</th><th>Couleur</th><th>Taille</th><th>Grammage</th><th class="r">Qté commandée</th>'+(_hasLivre2?'<th class="r">Livré</th><th class="r">Restant</th>':'<th class="r">Qté livrée</th>');
   return '<!doctype html><html><head><meta charset="utf-8">'+printCSS()+'</head><body>'
     +'<div class="header"><div class="from"><h1>'+fe(FL.name)+'</h1><p>'+fe(FL.address)+'</p><p>Tél&nbsp;: '+fe(FL.phone)+' — Mobile&nbsp;: '+fe(FL.mobile)+'</p><p>'+fe(FL.email)+'</p><p>SIRET&nbsp;: '+fe(FL.siret)+'</p></div>'
     +'<div class="docinfo"><h2>'+(isDelivery?'BON DE LIVRAISON':'FACTURE')+'</h2>'
