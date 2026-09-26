@@ -141,6 +141,9 @@
     <button class="tab-btn" onclick="showTab('shopify')" id="tab-shopify">
       <span class="tab-icon">🛒</span>Shopify
     </button>
+    <button class="tab-btn" onclick="showTab('seo-dashboard')" id="tab-seo-dashboard">
+      <span class="tab-icon">🔍</span>SEO
+    </button>
   </div>
   <!-- Blog -->
   <button class="tab-btn" onclick="showTab('blog-ravager')" id="tab-blog-ravager" style="background:linear-gradient(135deg,#8b0000,#cc2200);color:#fff;border:none;font-weight:900;letter-spacing:.5px">
@@ -2163,9 +2166,127 @@ Rouget 9cm 14g x8"></textarea>
       var p = document.getElementById('page-blog-ravager');
       if (p) p.style.display = 'flex';
     }
+    if (id === 'seo-dashboard') {
+      seoLoadIframe();
+    }
   };
 })();
 </script>
+
+<!-- ═══════════════════════════════════════════
+     PAGE SEO DASHBOARD
+════════════════════════════════════════════ -->
+<section class="page" id="page-seo-dashboard">
+<style>
+#seo-dash-wrap{display:flex;flex-direction:column;height:calc(100dvh - 130px);min-height:400px;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12);}
+#seo-dash-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#0d172b;flex-shrink:0;}
+#seo-dash-header .seo-title{display:flex;align-items:center;gap:10px;}
+#seo-dash-header .seo-title span{color:#fff;font-weight:700;font-size:14px;}
+#seo-dash-header .seo-live-badge{background:#4caf50;color:#fff;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.5px;}
+#seo-dash-header .seo-actions{display:flex;align-items:center;gap:8px;}
+#seo-url-input{padding:5px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;font-size:12px;width:220px;}
+#seo-url-input::placeholder{color:rgba(255,255,255,.5);}
+#seo-save-url-btn{padding:5px 10px;border-radius:8px;border:none;background:#4a90e2;color:#fff;font-size:12px;cursor:pointer;font-weight:600;}
+#seo-open-btn{padding:5px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:transparent;color:#ccc;font-size:12px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:4px;}
+#seo-iframe{flex:1;width:100%;border:none;background:#f6f8fc;}
+#seo-offline{display:none;flex:1;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:#f6f8fc;text-align:center;padding:40px 20px;}
+#seo-offline .seo-off-icon{font-size:52px;}
+#seo-offline h3{color:#444;margin:0;font-size:17px;}
+#seo-offline p{color:#888;font-size:13px;margin:0;max-width:360px;line-height:1.5;}
+#seo-offline code{background:#e8e8e8;padding:3px 8px;border-radius:6px;font-size:12px;}
+#seo-offline .seo-retry-btn{margin-top:8px;padding:10px 24px;border-radius:10px;border:none;background:#0d172b;color:#fff;font-size:13px;font-weight:700;cursor:pointer;}
+</style>
+
+<div id="seo-dash-wrap">
+  <div id="seo-dash-header">
+    <div class="seo-title">
+      <span>🔍</span>
+      <span>Dashboard SEO</span>
+      <span class="seo-live-badge" id="seo-status-badge">CHARGEMENT…</span>
+    </div>
+    <div class="seo-actions">
+      <input type="url" id="seo-url-input" placeholder="http://127.0.0.1:8000/app/" title="URL du serveur SEO"/>
+      <button id="seo-save-url-btn" onclick="seoSaveUrl()">✓ Appliquer</button>
+      <a id="seo-open-btn" href="#" target="_blank" rel="noopener">↗ Ouvrir</a>
+    </div>
+  </div>
+  <iframe id="seo-iframe" title="Dashboard SEO" allow="same-origin"></iframe>
+  <div id="seo-offline">
+    <div class="seo-off-icon">🔌</div>
+    <h3>Dashboard SEO non disponible</h3>
+    <p>Le serveur SEO n'est pas accessible à l'adresse configurée.<br>Vérifie qu'il est bien démarré sur ton PC.</p>
+    <p style="margin-top:8px;">Démarrer : <code>cd frenchy-shopifyseo && python -m uvicorn backend.app.main:app --reload</code></p>
+    <button class="seo-retry-btn" onclick="seoLoadIframe()">🔄 Réessayer</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var SEO_URL_KEY = 'frenchy_seo_url';
+  var DEFAULT_URL = 'http://127.0.0.1:8000/app/';
+
+  function getSeoUrl(){
+    try{ return localStorage.getItem(SEO_URL_KEY) || DEFAULT_URL; }catch(e){ return DEFAULT_URL; }
+  }
+
+  function initSeoInput(){
+    var inp = document.getElementById('seo-url-input');
+    var openBtn = document.getElementById('seo-open-btn');
+    if(inp) inp.value = getSeoUrl();
+    if(openBtn) openBtn.href = getSeoUrl();
+  }
+
+  window.seoSaveUrl = function(){
+    var inp = document.getElementById('seo-url-input');
+    if(!inp) return;
+    var url = inp.value.trim();
+    if(!url) return;
+    if(!url.endsWith('/')) url += '/';
+    try{ localStorage.setItem(SEO_URL_KEY, url); }catch(e){}
+    var openBtn = document.getElementById('seo-open-btn');
+    if(openBtn) openBtn.href = url;
+    seoLoadIframe();
+  };
+
+  window.seoLoadIframe = function(){
+    var url = getSeoUrl();
+    var iframe = document.getElementById('seo-iframe');
+    var offline = document.getElementById('seo-offline');
+    var badge = document.getElementById('seo-status-badge');
+    if(!iframe) return;
+
+    if(badge){ badge.textContent = 'CHARGEMENT…'; badge.style.background = '#f0a500'; }
+    if(offline){ offline.style.display = 'none'; }
+    iframe.style.display = 'block';
+
+    // Détection timeout : si l'iframe ne charge pas en 8s → afficher offline
+    var timer = setTimeout(function(){
+      iframe.style.display = 'none';
+      if(offline){ offline.style.display = 'flex'; }
+      if(badge){ badge.textContent = 'HORS LIGNE'; badge.style.background = '#e53935'; }
+    }, 8000);
+
+    iframe.onload = function(){
+      clearTimeout(timer);
+      if(badge){ badge.textContent = 'LIVE'; badge.style.background = '#4caf50'; }
+    };
+    iframe.onerror = function(){
+      clearTimeout(timer);
+      iframe.style.display = 'none';
+      if(offline){ offline.style.display = 'flex'; }
+      if(badge){ badge.textContent = 'HORS LIGNE'; badge.style.background = '#e53935'; }
+    };
+
+    iframe.src = url;
+  };
+
+  document.addEventListener('DOMContentLoaded', function(){
+    initSeoInput();
+    // Ne charge pas automatiquement — seulement quand l'onglet est ouvert
+  });
+})();
+</script>
+</section>
 
 </body>
 </html>
