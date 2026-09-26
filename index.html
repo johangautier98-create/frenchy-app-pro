@@ -8,8 +8,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
 <title>🎣 Frenchy Leurres — Application Pro</title>
 <link rel="icon" type="image/png" href="logo-app.png" />
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#1565c0" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -40,6 +47,11 @@
 </style>
 </head>
 <body>
+<!-- ══ BANDEAU HORS-LIGNE ══ -->
+<div id="fl-offline-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#c62828;color:#fff;padding:10px 20px;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.4);">
+  <span>📵 MODE HORS-LIGNE — Vous pouvez créer des factures, bons de livraison et commandes. Ils seront synchronisés automatiquement au retour d'internet.</span>
+  <span id="fl-offline-queue-count" style="background:#fff;color:#c62828;border-radius:20px;padding:3px 12px;margin-left:16px;font-size:12px;white-space:nowrap;"></span>
+</div>
 <div id="fl-lock-screen" class="fl-lock-screen fl-unlocked" style="display:none!important">
   <div class="fl-lock-card">
     <div class="fl-lock-logo-wrap">
@@ -122,8 +134,12 @@ function closeSidebar(){
   </div>
   <!-- CENTRE : titre -->
   <h1>🎣 Frenchy <span>Leurres</span> — Application Pro</h1>
-  <!-- DROITE : file impression -->
+  <!-- DROITE : actualiser + file impression -->
   <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;margin-left:auto">
+    <button onclick="location.reload()" title="L'écran ne se met pas à jour ? Cliquez ici pour actualiser l'application"
+      style="display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:999px;cursor:pointer;font-size:12px;font-weight:700;border:1.5px solid #1565c0;color:#1565c0;background:rgba(21,101,192,.1);white-space:nowrap;">
+      🔄 Actualiser
+    </button>
     <div id="queue-indicator" onclick="showTab('impression')">
       🖨️ <span id="queue-count">0</span>
     </div>
@@ -138,15 +154,20 @@ function closeSidebar(){
   </div>
   <div class="sidebar-group">
     <div class="sidebar-group-label">Ventes</div>
-    <button class="tab-btn active" id="tab-commande"><span class="tab-icon">📋</span>Commande</button>
+    <button class="tab-btn" id="tab-commande"><span class="tab-icon">🏷️</span>Étiquettes</button>
     <button class="tab-btn" id="tab-catalogue"><span class="tab-icon">📦</span>Catalogue</button>
     <button class="tab-btn" id="tab-impression"><span class="tab-icon">🖨️</span>Impression</button>
   </div>
   <div class="sidebar-group">
     <div class="sidebar-group-label">Finance</div>
-    <button class="tab-btn" id="tab-facturation"><span class="tab-icon">🧾</span>Facturation</button>
+    <button class="tab-btn active" id="tab-facturation"><span class="tab-icon">🧾</span>Facturation</button>
     <button class="tab-btn" id="tab-comptes-pro"><span class="tab-icon">🏪</span>Comptes Pro</button>
     <button class="tab-btn" id="tab-comptabilite"><span class="tab-icon">📊</span>Comptabilité</button>
+  </div>
+  <div class="sidebar-group">
+    <div class="sidebar-group-label">Boutique</div>
+    <a class="tab-btn" href="https://frenchyleurres.fr/" target="_blank" rel="noopener" style="text-decoration:none;"><span class="tab-icon">🌐</span>Frenchy Leurres</a>
+    <a class="tab-btn" href="https://ravager.fr/" target="_blank" rel="noopener" style="text-decoration:none;"><span class="tab-icon">🌐</span>Ravager</a>
   </div>
   <div class="sidebar-group">
     <div class="sidebar-group-label">Marketing</div>
@@ -161,9 +182,11 @@ function closeSidebar(){
 <div id="main-area">
 
 <!-- ═══════════════════════════════════════════
-     PAGE : COMMANDE
+     PAGE : COMMANDE (file d'impression codes-barres/étiquettes)
 ═══════════════════════════════════════════ -->
-<section class="page active" id="page-commande">
+<section class="page" id="page-commande">
+
+  <div class="alert alert-info" style="margin-bottom:10px;">💡 Pour créer une facture, un bon de livraison ou une commande pour un client (avec analyse IA), utilisez l'onglet <strong>🧾 Facturation</strong>. Cet onglet-ci sert uniquement à préparer une file d'impression d'étiquettes/codes-barres.</div>
 
   <div class="card">
     <div class="card-title"><span class="step-badge">1</span> Importer votre commande</div>
@@ -192,11 +215,15 @@ Rouget 9cm 14g x8"></textarea>
       <input type="number" id="default-qty" value="1" min="1" max="999" style="width:65px;text-align:center;font-weight:700;font-size:16px;"/>
       <span style="font-size:11px;color:#b07800;font-style:italic;">si non précisée dans la commande</span>
     </div>
-    <button class="btn btn-accent btn-full" onclick="analyzeOrder()" id="btn-analyze">
-        🔍 Analyser la commande
+    <button class="btn" style="flex:1;min-width:180px;background:var(--accent);color:var(--primary);border:none;font-weight:800;padding:12px;" onclick="lblAnalyzeIA()" id="btn-analyze-ia">
+        🤖 Analyser avec OpenAI
+      </button>
+      <button class="btn" style="flex:1;min-width:140px;padding:12px;" onclick="analyzeOrder()" id="btn-analyze">
+        🔍 Analyser (local)
       </button>
       <button class="btn btn-sm" onclick="document.getElementById('order-text').value='';clearResults()">🗑</button>
     </div>
+    <div id="lbl-ia-status" style="font-size:12px;color:var(--success);margin-top:6px;display:none;"></div>
   </div>
 
   <div id="order-results-section" style="display:none;">
@@ -233,7 +260,11 @@ Rouget 9cm 14g x8"></textarea>
     <div class="search-bar">
       <input type="text" id="cat-search" placeholder="🔍 Rechercher par nom, couleur, taille, référence…" oninput="renderCatalogue()"/>
       <span id="cat-count" style="font-size:12px;color:var(--muted);white-space:nowrap;"></span>
+      <span id="cat-order-mode" class="cat-order-chip" style="display:none;">🔀 Ordre perso <button onclick="resetCatalogueOrder()" title="Revenir à l'ordre alphabétique">✕</button></span>
       <button onclick="catShowAddProduit()" style="padding:7px 14px;background:var(--accent);color:var(--primary);border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap">➕ Nouveau produit</button>
+      <button onclick="flBackupCatalogueDownload()" style="padding:7px 14px;background:#2e7d32;color:#fff;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap" title="Sauvegarder le catalogue dans le dossier configuré">💾 Sauvegarder catalogue</button>
+      <button onclick="flPickBackupFolder()" style="padding:7px 14px;background:#5c3d11;color:#fff;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap" title="Choisir le dossier de sauvegarde sur votre ordinateur">📁 Configurer dossier</button>
+      <span class="fl-backup-folder-label" style="font-size:11px;color:var(--muted);align-self:center;"></span>
     </div>
     <div class="filter-bar" id="filter-bar"></div>
   </div>
@@ -533,7 +564,7 @@ Rouget 9cm 14g x8"></textarea>
 <!-- ═══════════════════════════════════════════
      PAGE : FACTURATION PRO
 ═══════════════════════════════════════════ -->
-<section class="page" id="page-facturation">
+<section class="page active" id="page-facturation">
 <style>
 .sub-tab-btn{flex:1;padding:13px;font-size:13px;font-weight:700;border:none;cursor:pointer;letter-spacing:.02em;transition:all .15s;}
 .factu-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px;}
@@ -625,19 +656,35 @@ Rouget 9cm 14g x8"></textarea>
           </div>
         </div>
       </div>
+      <div>
+        <label class="lbl">Livraison fractionnée — Partie</label>
+        <select id="mag-partie" onchange="magUpdatePartie()" style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;background:#fff;">
+          <option value="">— Commande complète (1 seule livraison) —</option>
+          <option value="P1">Partie 1 — 1ʳᵉ livraison</option>
+          <option value="P2">Partie 2 — 2ᵉ livraison</option>
+          <option value="P3">Partie 3 — 3ᵉ livraison</option>
+          <option value="P4">Partie 4 — 4ᵉ livraison</option>
+        </select>
+      </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#edf2ff;border-radius:8px;border-left:3px solid #1565c0;">
         <span style="font-size:11px;font-weight:800;color:#1565c0;letter-spacing:.05em;min-width:75px;">🧾 FACTURE</span>
-        <button class="btn" style="background:#1565c0;color:#fff;border-color:#1565c0;font-weight:700;" onclick="_magArchive('invoice')">💾 Enregistrer</button>
+        <button class="btn" style="background:#1565c0;color:#fff;border-color:#1565c0;font-weight:700;" onclick="_magArchive('invoice',{autoDownload:true})">💾 Enregistrer</button>
         <button class="btn btn-success" onclick="magPrint('invoice')">🖨️ Imprimer</button>
         <button class="btn btn-dark" onclick="magDownload('invoice')">⬇️ Télécharger</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#fff3e0;border-radius:8px;border-left:3px solid #e65100;">
         <span style="font-size:11px;font-weight:800;color:#e65100;letter-spacing:.05em;min-width:75px;">📦 BON DE LIVRAISON</span>
-        <button class="btn" style="background:#e65100;color:#fff;border-color:#e65100;font-weight:700;" onclick="_magArchive('delivery')">💾 Enregistrer</button>
+        <button class="btn" style="background:#e65100;color:#fff;border-color:#e65100;font-weight:700;" onclick="_magArchive('delivery',{autoDownload:true})">💾 Enregistrer</button>
         <button class="btn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-weight:700;" onclick="magPrint('delivery')">🖨️ Imprimer</button>
         <button class="btn btn-dark" onclick="magDownload('delivery')">⬇️ Télécharger</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#f3e5f5;border-radius:8px;border-left:3px solid #7b1fa2;">
+        <span style="font-size:11px;font-weight:800;color:#7b1fa2;letter-spacing:.05em;min-width:75px;">🛒 COMMANDE</span>
+        <button class="btn" style="background:#7b1fa2;color:#fff;border-color:#7b1fa2;font-weight:700;" onclick="_magArchive('commande',{autoDownload:true})">💾 Enregistrer</button>
+        <button class="btn" style="background:#6a1b9a;color:#fff;border-color:#6a1b9a;font-weight:700;" onclick="magPrint('commande')">🖨️ Imprimer</button>
+        <button class="btn btn-dark" onclick="magDownload('commande')">⬇️ Télécharger</button>
       </div>
     </div>
     <button class="btn-go-print" id="mag-go-print" onclick="goToCommandeFromFactu('mag')">
@@ -704,11 +751,11 @@ Rouget 9cm 14g x8"></textarea>
       <div><label class="lbl">Magasin Cabesto *</label>
         <select id="cab-client-sel"><option value="">— Choisir le magasin —</option></select></div>
       <div><label class="lbl">Réf. commande Cabesto</label>
-        <input type="text" id="cab-order-ref" placeholder="COMF/MAN/2026/XXXXX"/></div>
-      <div><label class="lbl">N° facture</label><input type="text" id="cab-inv-num" placeholder="Auto-rempli…"/></div>
+        <input type="text" id="cab-order-ref" placeholder="COMF/MAN/2026/XXXXX" oninput="cabUpdatePreview(_cabPreviewType||'invoice')"/></div>
+      <div><label class="lbl">N° facture</label><input type="text" id="cab-inv-num" placeholder="Auto-rempli…" oninput="cabUpdatePreview(_cabPreviewType||'invoice')"/></div>
     </div>
     <div class="grid3" style="margin-top:10px;">
-      <div><label class="lbl">Date facture</label><input type="date" id="cab-inv-date"/></div>
+      <div><label class="lbl">Date facture</label><input type="date" id="cab-inv-date" oninput="cabUpdatePreview(_cabPreviewType||'invoice')"/></div>
       <div><label class="lbl">Date livraison prévue</label><input type="date" id="cab-delivery-date"/></div>
       <div><label class="lbl">Code fournisseur</label>
         <input type="text" id="cab-supplier-code" value="FE00513" style="font-weight:700;background:#f8f8f4;"/></div>
@@ -731,15 +778,21 @@ Rouget 9cm 14g x8"></textarea>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#fdecea;border-radius:8px;border-left:3px solid #c62828;">
         <span style="font-size:11px;font-weight:800;color:#c62828;letter-spacing:.05em;min-width:75px;">🧾 FACTURE</span>
-        <button class="btn" style="background:#c62828;color:#fff;border-color:#c62828;font-weight:700;" onclick="_cabArchive('invoice')">💾 Enregistrer</button>
+        <button class="btn" style="background:#c62828;color:#fff;border-color:#c62828;font-weight:700;" onclick="_cabArchive('invoice',{autoDownload:true})">💾 Enregistrer</button>
         <button class="btn" style="background:#c62828;color:#fff;border-color:#c62828;font-weight:700;" onclick="cabPrint('invoice')">🖨️ Imprimer</button>
         <button class="btn btn-dark" onclick="cabDownload('invoice')">⬇️ Télécharger</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#fff3e0;border-radius:8px;border-left:3px solid #e65100;">
         <span style="font-size:11px;font-weight:800;color:#e65100;letter-spacing:.05em;min-width:75px;">📦 BON DE LIVRAISON</span>
-        <button class="btn" style="background:#e65100;color:#fff;border-color:#e65100;font-weight:700;" onclick="_cabArchive('delivery')">💾 Enregistrer</button>
+        <button class="btn" style="background:#e65100;color:#fff;border-color:#e65100;font-weight:700;" onclick="_cabArchive('delivery',{autoDownload:true})">💾 Enregistrer</button>
         <button class="btn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-weight:700;" onclick="cabPrint('delivery')">🖨️ Imprimer</button>
         <button class="btn btn-dark" onclick="cabDownload('delivery')">⬇️ Télécharger</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#f3e5f5;border-radius:8px;border-left:3px solid #7b1fa2;">
+        <span style="font-size:11px;font-weight:800;color:#7b1fa2;letter-spacing:.05em;min-width:75px;">🛒 COMMANDE</span>
+        <button class="btn" style="background:#7b1fa2;color:#fff;border-color:#7b1fa2;font-weight:700;" onclick="_cabArchive('commande',{autoDownload:true})">💾 Enregistrer</button>
+        <button class="btn" style="background:#6a1b9a;color:#fff;border-color:#6a1b9a;font-weight:700;" onclick="cabPrint('commande')">🖨️ Imprimer</button>
+        <button class="btn btn-dark" onclick="cabDownload('commande')">⬇️ Télécharger</button>
       </div>
       <div id="cab-packing-info" style="margin:8px 0 4px;padding:8px 12px;background:#0a2a0a;border:1px solid #1a5e20;border-radius:6px;font-size:12px;display:flex;gap:16px;flex-wrap:wrap">
         <span style="color:#aaa">🏪 CDE magasin : <strong id="cab-cde-display" style="color:#66bb6a">— (détecté à l'import)</strong></span>
@@ -756,28 +809,63 @@ Rouget 9cm 14g x8"></textarea>
     <div id="cab-lines"><div class="factu-empty">Importez ou collez le bon de commande Cabesto ci-dessus.</div></div>
     <div id="cab-total" style="display:none;margin-top:8px;"></div>
   </div>
+  <!-- APERÇU EN DIRECT -->
+  <div class="card">
+    <div class="card-title">👁️ Aperçu en direct — facture / bon de livraison</div>
+    <div class="preview-toggle">
+      <button id="cab-prev-btn-invoice" class="active" onclick="cabSetPreviewType('invoice')">🧾 Voir la facture</button>
+      <button id="cab-prev-btn-delivery" onclick="cabSetPreviewType('delivery')">📦 Voir le bon de livraison</button>
+    </div>
+    <iframe id="cab-factu-preview" sandbox="allow-same-origin" title="Aperçu document"></iframe>
+  </div>
 </div>
 
 <!-- ══ HISTORIQUE FACTURES ══ -->
 <div id="factu-tab-historique" style="display:none;">
   <!-- KPI -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;">
-    <div class="card" style="padding:12px;text-align:center;">
-      <div style="font-size:22px;font-weight:900;color:var(--accent)" id="histoKpiTotal">0</div>
-      <div style="font-size:11px;color:var(--muted)">Documents</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px;">
+    <div class="card" style="padding:12px;text-align:center;border-top:3px solid #1565c0;">
+      <div style="font-size:24px;font-weight:900;color:#1565c0" id="histoKpiFactures">0</div>
+      <div style="font-size:11px;color:var(--muted);font-weight:700;">🧾 Factures</div>
     </div>
-    <div class="card" style="padding:12px;text-align:center;">
-      <div style="font-size:16px;font-weight:900;color:#2e7d32" id="histoKpiPaye">0 €</div>
-      <div style="font-size:11px;color:var(--muted)">✅ Payé</div>
+    <div class="card" style="padding:12px;text-align:center;border-top:3px solid #e65100;">
+      <div style="font-size:24px;font-weight:900;color:#e65100" id="histoKpiBL">0</div>
+      <div style="font-size:11px;color:var(--muted);font-weight:700;">📦 Bons de livraison</div>
     </div>
-    <div class="card" style="padding:12px;text-align:center;">
-      <div style="font-size:16px;font-weight:900;color:#e65100" id="histoKpiAttente">0 €</div>
-      <div style="font-size:11px;color:var(--muted)">⏳ En attente</div>
+    <div class="card" style="padding:12px;text-align:center;border-top:3px solid #7b1fa2;">
+      <div style="font-size:24px;font-weight:900;color:#7b1fa2" id="histoKpiCommandes">0</div>
+      <div style="font-size:11px;color:var(--muted);font-weight:700;">🛒 Commandes</div>
     </div>
-    <div class="card" style="padding:12px;text-align:center;">
-      <div style="font-size:16px;font-weight:900;color:#c62828" id="histoKpiRetard">0 €</div>
-      <div style="font-size:11px;color:var(--muted)">🔴 En retard</div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">
+    <div class="card" style="padding:10px;text-align:center;">
+      <div style="font-size:14px;font-weight:900;color:#2e7d32" id="histoKpiPaye">0 €</div>
+      <div style="font-size:10px;color:var(--muted);">✅ Payé — factures</div>
     </div>
+    <div class="card" style="padding:10px;text-align:center;">
+      <div style="font-size:14px;font-weight:900;color:#e65100" id="histoKpiAttente">0 €</div>
+      <div style="font-size:10px;color:var(--muted);">⏳ En attente — factures</div>
+    </div>
+    <div class="card" style="padding:10px;text-align:center;">
+      <div style="font-size:14px;font-weight:900;color:#c62828" id="histoKpiRetard">0 €</div>
+      <div style="font-size:10px;color:var(--muted);">🔴 En retard — factures</div>
+    </div>
+  </div>
+
+  <!-- CARTES CLIENTS -->
+  <div class="card" style="padding:14px;margin-bottom:10px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <span style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">🏪 Clients — cliquez pour filtrer</span>
+      <div style="display:flex;gap:6px;">
+        <button onclick="loadHistorique()" style="padding:4px 12px;background:#1565c0;color:#fff;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;">🔄 Actualiser</button>
+        <button onclick="flBackupDownload()" style="padding:4px 12px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;" title="Sauvegarder les factures dans le dossier configuré">💾 Sauvegarder</button>
+        <button onclick="flPickBackupFolder()" style="padding:4px 12px;background:#5c3d11;color:#fff;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;" title="Choisir le dossier de sauvegarde sur votre ordinateur">📁 Configurer dossier</button>
+        <span class="fl-backup-folder-label" style="font-size:10px;color:var(--muted);align-self:center;"></span>
+        <button onclick="flRenumeroterFactures()" style="padding:4px 12px;background:#7b1fa2;color:#fff;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;" title="Combler les trous dans la numérotation (factures pas encore envoyées aux clients uniquement)">🔧 Renuméroter</button>
+        <button onclick="histoSelectClient('')" style="padding:4px 10px;background:#444;color:#fff;border:none;border-radius:6px;font-size:11px;cursor:pointer;">✕ Tout voir</button>
+      </div>
+    </div>
+    <div id="histoClientCards" style="display:flex;flex-wrap:wrap;gap:8px;min-height:20px;"></div>
   </div>
 
   <!-- FILTRES -->
@@ -793,6 +881,7 @@ Rouget 9cm 14g x8"></textarea>
           <option value="">— Tous —</option>
           <option value="facture">🧾 Facture</option>
           <option value="bon_livraison">📦 Bon de livraison</option>
+          <option value="commande">🛒 Commande</option>
         </select>
       </div>
       <div>
@@ -818,7 +907,7 @@ Rouget 9cm 14g x8"></textarea>
         <label class="lbl">Période</label>
         <div style="display:flex;gap:6px;align-items:center;">
           <input type="month" id="histoFilterMonth" onchange="renderHistorique()" style="flex:1"/>
-          <button onclick="document.getElementById('histoFilterMonth').value='';document.getElementById('histoSearch').value='';document.getElementById('histoFilterType').value='';document.getElementById('histoFilterStatut').value='';document.getElementById('histoFilterClient').value='';renderHistorique()" style="padding:8px 12px;background:#444;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">🗑 Réinitialiser</button>
+          <button onclick="document.getElementById('histoFilterMonth').value='';document.getElementById('histoSearch').value='';document.getElementById('histoFilterType').value='';document.getElementById('histoFilterStatut').value='';document.getElementById('histoFilterClient').value='';histoSelectClient('');renderHistorique()" style="padding:8px 12px;background:#444;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">🗑 Réinitialiser</button>
         </div>
       </div>
     </div>
@@ -867,7 +956,8 @@ Rouget 9cm 14g x8"></textarea>
       <div class="guide-step-num">1</div>
       <div class="guide-step-content">
         <h3>Recevoir une commande</h3>
-        <p>Quand vous recevez une commande (email, PDF, photo), allez sur l'onglet <strong>Commande</strong>.</p>
+        <p>Quand vous recevez une commande d'un client (email, PDF, photo), allez sur l'onglet <strong>🧾 Facturation</strong> (Magasin ou Cabesto) : l'IA analyse la commande, prépare la facture/BL/commande ET la file d'impression des codes-barres en une seule étape.</p>
+        <p>L'onglet <strong>🏷️ Étiquettes</strong> reste disponible séparément si vous voulez juste réimprimer des étiquettes sans créer de facture.</p>
         <ul>
           <li>Pour un <strong>PDF</strong> : cliquez sur la zone import et sélectionnez le PDF — le texte sera extrait automatiquement</li>
           <li>Pour une <strong>photo</strong> : importez l'image, lisez-la et tapez la commande dans le champ texte</li>
@@ -1859,6 +1949,25 @@ Rouget 9cm 14g x8"></textarea>
 
 <script src="magasins.js"></script>
 <script src="produits.js"></script>
+<script>
+// ── ENREGISTREMENT SERVICE WORKER (PWA OFFLINE) ──
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('/sw.js').then(function(reg){
+      console.log('✅ Service Worker enregistré — mode hors-ligne actif', reg.scope);
+    }).catch(function(err){
+      console.warn('⚠️ Service Worker non enregistré:', err);
+    });
+  });
+}
+// Afficher le bandeau si déjà hors-ligne au démarrage
+if(!navigator.onLine){
+  document.addEventListener('DOMContentLoaded', function(){
+    var b = document.getElementById('fl-offline-banner');
+    if(b) b.style.display = 'flex';
+  });
+}
+</script>
 
 <!-- ══ MODAL EMAIL PREVIEW ══ -->
 <div id="modalEmail" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;padding:16px;overflow-y:auto;">
@@ -2294,5 +2403,33 @@ Rouget 9cm 14g x8"></textarea>
 </script>
 
 </div><!-- /#main-area -->
+<!-- ══ MODAL FORMAT TÉLÉCHARGEMENT ══ -->
+<div id="fl-format-picker" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:999999;align-items:center;justify-content:center;">
+  <div style="background:#1a1a2e;border:1px solid #333;border-radius:20px;padding:30px 32px;width:400px;max-width:94vw;box-shadow:0 24px 64px rgba(0,0,0,.7);">
+    <div style="font-size:19px;font-weight:900;color:#fff;margin-bottom:6px;">📥 Format de téléchargement</div>
+    <div style="font-size:12px;color:#888;margin-bottom:22px;">Choisissez le format du fichier à enregistrer</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button onclick="flFormatDownload('pdf')" style="padding:16px 18px;background:#c62828;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:24px;">📄</span>
+        <span><div style="font-size:14px;font-weight:800;">PDF</div><div style="font-size:11px;font-weight:400;opacity:.85;">Document prêt à envoyer ou imprimer — qualité professionnelle</div></span>
+      </button>
+      <button onclick="flFormatDownload('xlsx')" style="padding:16px 18px;background:#1b5e20;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:24px;">📊</span>
+        <span><div style="font-size:14px;font-weight:800;">Excel (.xls)</div><div style="font-size:11px;font-weight:400;opacity:.85;">Même mise en page que la facture — tableaux, bordures, couleurs</div></span>
+      </button>
+      <button onclick="flFormatDownload('pptx')" style="padding:16px 18px;background:#c25800;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:24px;">📑</span>
+        <span><div style="font-size:14px;font-weight:800;">PowerPoint (.pptx)</div><div style="font-size:11px;font-weight:400;opacity:.85;">Diapositive image de la facture — ouvrable dans PowerPoint</div></span>
+      </button>
+      <button onclick="flFormatDownload('html')" style="padding:16px 18px;background:#0d47a1;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:24px;">🌐</span>
+        <span><div style="font-size:14px;font-weight:800;">HTML</div><div style="font-size:11px;font-weight:400;opacity:.85;">Document complet — s'ouvre dans n'importe quel navigateur</div></span>
+      </button>
+      <button onclick="document.getElementById('fl-format-picker').style.display='none'" style="padding:13px 18px;background:transparent;color:#666;border:1px solid #444;border-radius:10px;font-size:13px;cursor:pointer;margin-top:4px;font-weight:600;">
+        ✕ Fermer — document déjà enregistré en base
+      </button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

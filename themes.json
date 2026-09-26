@@ -1,0 +1,242 @@
+[
+  {
+    "id": 1,
+    "sujet": "Choisir son leurre souple pour la pêche en mer : le guide du débutant",
+    "produits_fl": ["G de Gautier", "Frenchy Shiner"],
+    "produits_ravager": ["Ravager Shad T1", "Ravager Shad T2"],
+    "tags_fl": "Pêche, Leurre souple, Débutant, Bar",
+    "tags_ravager": "Pêche, RAVAGER, Leurre souple, Technique"
+  },
+  {
+    "id": 2,
+    "sujet": "Techniques d'animation des leurres souples : tout ce que les pros ne disent pas",
+    "produits_fl": ["G de Gautier", "Mistik Shad"],
+    "produits_ravager": ["Ravager Shad T2", "Ravager Shad T3"],
+    "tags_fl": "Pêche, Animation, Technique, Leurre souple",
+    "tags_ravager": "Pêche, Animation, Technique, RAVAGER"
+  },
+  {
+    "id": 3,
+    "sujet": "Pêche du bar en rocky shore : approche et tactiques",
+    "produits_fl": ["Frenchy Shiner", "Frenchy TP"],
+    "produits_ravager": ["Ravager Shad T3", "Ravager Shad T4"],
+    "tags_fl": "Pêche, Bar, Rocky shore, Leurre souple",
+    "tags_ravager": "Pêche, Bar, Rocky shore, RAVAGER"
+  },
+  {
+    "id": 4,
+    "sujet": "Grammages de têtes plombées : quand passer de 3g à 9g ?",
+    "produits_fl": ["Frenchy TP", "G de Gautier"],
+    "produits_ravager": ["Ravager Shad T1", "Ravager Shad T2"],
+    "tags_fl": "Pêche, Têtes plombées, Technique, Grammage",
+    "tags_ravager": "Pêche, Têtes plombées, RAVAGER, Technique"
+  },
+  {
+    "id": 5,
+    "sujet": "Pêche du maquereau au leurre souple : efficacité garantie",
+    "produits_fl": ["Frenchy Shiner", "Astro Shad"],
+    "produits_ravager": ["Ravager Shad T1", "Ravager Shad T2"],
+    "tags_fl": "Pêche, Maquereau, Leurre souple, Méditerranée",
+    "tags_ravager": "Pêche, Maquereau, RAVAGER, Leurre souple"
+  },
+  {
+    "id": 6,
+    "sujet": "Spot de pêche : comment lire une digue pour trouver le bar",
+    "produits_fl": ["G de Gautier", "Mistik Shad"],
+    "produits_ravager": ["Ravager Shad T2", "Ravager Shad T3"],
+    "tags_fl": "Pêche, Digue, Bar, Spot",
+    "tags_ravager": "Pêche, Digue, Bar, RAVAGER"
+  },
+  {
+    "id": 7,
+    "sujet": "Fluorocarbone vs nylon en pêche au leurre souple : que choisir ?",
+    "produits_fl": ["G de Gautier", "Frenchy Shiner"],
+    "produits_ravager": ["Ravager Shad T2", "Ravager Shad T3"],
+    "tags_fl": "Pêche, Fluorocarbone, Technique, Matériel",
+    "tags_ravager": "Pêche, Fluorocarbone, RAVAGER, Technique"
+  },
+  {
+    "id": 8,
+    "sujet": "Pêche côtière en Méditerranée : espèces, saisons et leurres adaptés",
+    "produits_fl": ["Frenchy Shiner", "Astro Shad"],
+    "produits_ravager": ["Ravager Shad T3", "Ravager Shad T4"],
+    "tags_fl": "Pêche, Méditerranée, Côtière, Leurre souple",
+    "tags_ravager": "Pêche, Méditerranée, Côtière, RAVAGER"
+  },
+  {
+    "id": 9,
+    "sujet": "Pêche du loup de nuit au leurre souple : secrets pour des sessions inoubliables",
+    "produits_fl": ["G de Gautier", "Astro Shad"],
+    "produits_ravager": ["Ravager Shad T2", "Ravager Shad T3"],
+    "tags_fl": "Pêche, Bar, Loup, Nuit, Leurre souple, G de Gautier",
+    "tags_ravager": "Pêche, Bar, Nuit, Leurre souple, RAVAGER"
+  },
+  {
+    "id": 10,
+    "sujet": "Pêche du loup en embouchure de rivière : le jackpot côtier",
+    "produits_fl": ["G de Gautier", "Frenchy Shiner"],
+    "produits_ravager": ["Ravager Shad T2", "Ravager Shad T3"],
+    "tags_fl": "Pêche, Bar, Embouchure, Leurre souple",
+    "tags_ravager": "Pêche, Bar, Embouchure, RAVAGER"
+  },
+  {
+    "id": 11,
+    "sujet": "Stop and go, nage linéaire, grattage : quelle animation selon les conditions ?",
+    "produits_fl": ["G de Gautier", "Mistik Shad"],
+    "produits_ravager": ["Ravager Shad T1", "Ravager Shad T2"],
+    "tags_fl": "Pêche, Animation, Technique, Stop and Go",
+    "tags_ravager": "Pêche, Animation, Technique, RAVAGER"
+  },
+  {
+    "id": 12,
+    "sujet": "Pêche du bar en été : adapter sa stratégie face à la chaleur",
+    "produits_fl": ["Frenchy Shiner", "Astro Shad"],
+    "produits_ravager": ["Ravager Shad T3", "Ravager Shad T4"],
+    "tags_fl": "Pêche, Bar, Été, Leurre souple",
+    "tags_ravager": "Pêche, Bar, Été, RAVAGER"
+  },
+  {
+    "id": 13,
+    "sujet": "Couleurs de leurres souples : quel coloris selon la turbidité de l'eau ?",
+    "produits_fl": ["G de Gautier", "Frenchy Shiner"],
+    "produits_ravager": ["Ravager Shad T2", "Ravager Shad T3"],
+    "tags_fl": "Pêche, Couleurs, Leurre souple, Technique",
+    "tags_ravager": "Pêche, Couleurs, RAVAGER, Technique"
+  },
+  {
+    "id": 14,
+    "sujet": "Pêche du bar sous les lumières de nuit : exploiter les halos lumineux",
+    "produits_fl": ["G de Gautier", "Mistik Shad"],
+    "produits_ravager": ["Ravager Shad T1", "Ravager Shad T2"],
+    "tags_fl": "Pêche, Bar, Nuit, Lumière, Leurre souple",
+    "tags_ravager": "Pêche, Bar, Nuit, RAVAGER"
+  },
+  {
+    "id": 15,
+    "sujet": "Taille de leurre souple : 6 cm, 9 cm ou 10,5 cm — comment choisir ?",
+    "produits_fl": ["Mistik Shad", "G de Gautier", "Frenchy Shiner"],
+    "produits_ravager": ["Ravager Shad T1", "Ravager Shad T2", "Ravager Shad T3"],
+    "tags_fl": "Pêche, Taille, Leurre souple, Technique",
+    "tags_ravager": "Pêche, Taille, RAVAGER, Technique"
+  },
+  {
+    "id": 16,
+    "sujet": "Pêche en surf casting au leurre souple : les bases pour débuter",
+    "produits_fl": ["Frenchy Shiner", "Frenchy TP"],
+    "produits_ravager": ["Ravager Shad T4"],
+    "tags_fl": "Pêche, Surf casting, Leurre souple, Plage",
+    "tags_ravager": "Pêche, Surf casting, RAVAGER"
+  },
+  {
+    "id": 17,
+    "sujet": "Lire les courants côtiers pour cibler le bar : ce que l'eau vous dit",
+    "produits_fl": ["G de Gautier", "Astro Shad"],
+    "produits_ravager": ["Ravager Shad T2", "Ravager Shad T3"],
+    "tags_fl": "Pêche, Courants, Bar, Stratégie",
+    "tags_ravager": "Pêche, Courants, RAVAGER, Stratégie"
+  },
+  {
+    "id": 18,
+    "sujet": "Pêche au drop shot en mer : technique efficace pour le bar côtier",
+    "produits_fl": ["Mistik Shad", "G de Gautier"],
+    "produits_ravager": ["Ravager Shad T1", "Ravager Shad T2"],
+    "tags_fl": "Pêche, Drop shot, Bar, Technique",
+    "tags_ravager": "Pêche, Drop shot, RAVAGER, Technique"
+  },
+  {
+    "id": 19,
+    "sujet": "Avant et après tempête : pêcher le bar dans les conditions agitées",
+    "produits_fl": ["Frenchy Shiner", "Frenchy TP"],
+    "produits_ravager": ["Ravager Shad T3", "Ravager Shad T4"],
+    "tags_fl": "Pêche, Bar, Tempête, Conditions difficiles",
+    "tags_ravager": "Pêche, Bar, Tempête, RAVAGER"
+  },
+  {
+    "id": 20,
+    "sujet": "Pêche du loup en herbier de posidonie : secrets méditerranéens",
+    "produits_fl": ["G de Gautier", "Mistik Shad"],
+    "produits_ravager": ["Ravager Shad T2", "Ravager Shad T3"],
+    "tags_fl": "Pêche, Bar, Posidonie, Méditerranée",
+    "tags_ravager": "Pêche, Bar, Posidonie, RAVAGER"
+  },
+  {
+    "id": 21,
+    "sujet": "Montage texan pour le bar : éviter les accroches sur fonds encombrés",
+    "produits_fl": ["Frenchy Shiner", "Astro Shad"],
+    "produits_ravager": ["Ravager Shad T2", "Ravager Shad T3"],
+    "tags_fl": "Pêche, Montage texan, Bar, Fonds rocheux",
+    "tags_ravager": "Pêche, Montage texan, RAVAGER"
+  },
+  {
+    "id": 22,
+    "sujet": "Slow fishing au leurre souple en mer : pêcher lentement pour mieux convaincre",
+    "produits_fl": ["G de Gautier", "Mistik Shad"],
+    "produits_ravager": ["Ravager Shad T1", "Ravager Shad T2"],
+    "tags_fl": "Pêche, Slow fishing, Bar, Leurre souple",
+    "tags_ravager": "Pêche, Slow fishing, RAVAGER"
+  },
+  {
+    "id": 23,
+    "sujet": "Pêche du bar en kayak : spots, sécurité et leurres adaptés",
+    "produits_fl": ["G de Gautier", "Frenchy Shiner"],
+    "produits_ravager": ["Ravager Shad T2", "Ravager Shad T3"],
+    "tags_fl": "Pêche, Kayak, Bar, Leurre souple",
+    "tags_ravager": "Pêche, Kayak, RAVAGER"
+  },
+  {
+    "id": 24,
+    "sujet": "Comprendre les touches du bar : sèches, molles, en dessous — les reconnaître",
+    "produits_fl": ["Astro Shad", "G de Gautier"],
+    "produits_ravager": ["Ravager Shad T2", "Ravager Shad T3"],
+    "tags_fl": "Pêche, Touches, Bar, Technique",
+    "tags_ravager": "Pêche, Touches, RAVAGER, Technique"
+  },
+  {
+    "id": 25,
+    "sujet": "Entretien et stockage des leurres souples : prolonger leur durée de vie",
+    "produits_fl": ["G de Gautier", "Frenchy Shiner", "Mistik Shad"],
+    "produits_ravager": ["Ravager Shad T1", "Ravager Shad T2"],
+    "tags_fl": "Pêche, Entretien, Leurre souple, Conseils",
+    "tags_ravager": "Pêche, Entretien, RAVAGER, Conseils"
+  },
+  {
+    "id": 26,
+    "sujet": "Technique de lancer : précision et distance pour le leurre souple",
+    "produits_fl": ["Frenchy Shiner", "Frenchy TP"],
+    "produits_ravager": ["Ravager Shad T3", "Ravager Shad T4"],
+    "tags_fl": "Pêche, Lancer, Précision, Technique",
+    "tags_ravager": "Pêche, Lancer, RAVAGER, Technique"
+  },
+  {
+    "id": 27,
+    "sujet": "Pêche du loup au lever du soleil : l'heure d'or sur le littoral",
+    "produits_fl": ["G de Gautier", "Astro Shad"],
+    "produits_ravager": ["Ravager Shad T2", "Ravager Shad T3"],
+    "tags_fl": "Pêche, Bar, Lever du soleil, Leurre souple",
+    "tags_ravager": "Pêche, Bar, Lever du soleil, RAVAGER"
+  },
+  {
+    "id": 28,
+    "sujet": "Pêche des mulets au leurre souple : technique et spots",
+    "produits_fl": ["Mistik Shad", "Frenchy Shiner"],
+    "produits_ravager": ["Ravager Shad T1", "Ravager Shad T2"],
+    "tags_fl": "Pêche, Mulet, Leurre souple, Technique",
+    "tags_ravager": "Pêche, Mulet, RAVAGER, Technique"
+  },
+  {
+    "id": 29,
+    "sujet": "Pêche du thon rouge côtier au leurre souple : frissons garantis",
+    "produits_fl": ["Frenchy Shiner", "Astro Shad"],
+    "produits_ravager": ["Ravager Shad T4"],
+    "tags_fl": "Pêche, Thon rouge, Leurre souple, Big game",
+    "tags_ravager": "Pêche, Thon rouge, RAVAGER, Big game"
+  },
+  {
+    "id": 30,
+    "sujet": "Bilan de saison : les leurres Frenchy Leurres qui ont tout déchiré cet été",
+    "produits_fl": ["G de Gautier", "Frenchy Shiner", "Astro Shad"],
+    "produits_ravager": ["Ravager Shad T2", "Ravager Shad T3", "Ravager Shad T4"],
+    "tags_fl": "Pêche, Bilan, Été, Leurre souple",
+    "tags_ravager": "Pêche, Bilan, Été, RAVAGER"
+  }
+]

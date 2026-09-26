@@ -255,7 +255,7 @@ function proToolbar(){
   box.innerHTML='<div id="proSupabaseStatus" style="font-size:11px;border:1px solid rgba(255,217,59,.35);border-radius:999px;padding:5px 9px;background:rgba(255,217,59,.12);color:#ffd93b">\u23f3 Connexion...</div>'
     +'<div style="display:flex;gap:6px;">'
     +'<button type="button" class="cpro-btn cpro-ghost" style="padding:5px 9px;font-size:11px" onclick="pLoadList(true)">\ud83d\udd04 Recharger</button>'
-    +'<button type="button" class="cpro-btn cpro-gold" style="padding:5px 9px;font-size:11px" onclick="pExportClients()">\ud83d\udce4 Export</button>'
+    +'<button type="button" class="cpro-btn cpro-gold" style="padding:5px 9px;font-size:11px" onclick="pExportClients()" title="Exporter les clients au format CSV pour importer dans Henrri">\ud83d\udce4 Export Henrri</button>'
     +'</div>';
   panel.insertBefore(box,list);
 }
@@ -293,7 +293,7 @@ window.pLoadList=function(force){
   s.from('pro_clients').select('*').order('created_at',{ascending:false}).then(function(r){
     if(r.error){proConn('\u26a0\ufe0f Erreur : '+r.error.message,false);_proCacheV32=local;proRender(local,r.error.message);return;}
     var data=r.data||[];proMirror(data);proConn('\u2705 Supabase connect\u00e9',true);proRender(data);
-    try{window._supabaseClients=data;if(typeof window.buildClientDropdowns==='function')window.buildClientDropdowns();}catch(e){}
+    try{window._supabaseClients=data;if(typeof window.flOfflineCachePut==='function')window.flOfflineCachePut('supabaseClients',data);if(typeof window.buildClientDropdowns==='function')window.buildClientDropdowns();}catch(e){}
   }).catch(function(err){proConn('\u26a0\ufe0f Inaccessible \u2014 mode local',false);_proCacheV32=local;proRender(local,err.message);});
 };
 
@@ -375,11 +375,19 @@ window.pResetForm=function(){
 
 window.pExportClients=function(){
   var data=_proCacheV32.length?_proCacheV32:proGetLocal();
-  var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  if(!data.length){pToast('Aucun client \u00e0 exporter','#e53935','#fff');return;}
+  function esc(v){v=String(v||'');return v.indexOf(',')!==-1||v.indexOf('"')!==-1||v.indexOf('\n')!==-1?'"'+v.replace(/"/g,'""')+'"':v;}
+  var cols=['Raison sociale','Nom du contact','Email','T\u00e9l\u00e9phone','Adresse','SIRET','N\u00b0 TVA','Notes'];
+  var rows=[cols.join(',')];
+  data.forEach(function(c){
+    rows.push([esc(c.nom_magasin),esc(c.nom_responsable),esc(c.email),esc(c.telephone),esc(c.adresse),esc(c.siret),esc(c.tva),esc(c.notes)].join(','));
+  });
+  var csv='\ufeff'+rows.join('\r\n');
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
   var url=URL.createObjectURL(blob);var a=document.createElement('a');
-  a.href=url;a.download='frenchy_comptes_pro_'+new Date().toISOString().slice(0,10)+'.json';
+  a.href=url;a.download='clients_henrri_'+new Date().toISOString().slice(0,10)+'.csv';
   document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
-  pToast('\ud83d\udce4 Export t\u00e9l\u00e9charg\u00e9','#ffd93b','#000');
+  pToast('\ud83d\udce4 '+data.length+' clients export\u00e9s pour Henrri','#1565c0','#fff');
 };
 
 window.pGenEmail=window.pGenEmail;// already defined above

@@ -2480,6 +2480,13 @@ const RAW = [
   ["T4-R-125-BV","RAVAGER Tuna","Leurre souple","Bleu / Violet","125 mm","67 g","Combo (TP + corps + corps de rechange + glue offerte)",10.9,23.9,"7864181315628",0],
   ["T4-R-125-K","RAVAGER Tuna","Leurre souple","Khaki","125 mm","67 g","Combo (TP + corps + corps de rechange + glue offerte)",10.9,23.9,"7864179455565",0],
   ["ACC-GLUE-SIL-3","Super Glue","Accessoire","","SUPER GLUE","SPECIAL SILICONE 3ML","x1",0,0,"",1],
+  // TUBE — leurres souple tube (ajout 14/09/2026)
+  ["tube-125-VP","TUBE","Leurre souple","Vert pastel","12,5 cm","","",4.39,9.90,"7864179378782",0],
+  ["tube-125-BP","TUBE","Leurre souple","Bleu pastel","12,5 cm","","",4.39,9.90,"7864179527606",0],
+  ["tube-125-BLC","TUBE","Leurre souple","Blanc","12,5 cm","","",4.39,9.90,"7864179549185",0],
+  ["tube-160-BLC","TUBE","Leurre souple","Blanc","16 cm","","",4.39,9.90,"7864179380942",0],
+  ["tube-160-VP","TUBE","Leurre souple","Vert pastel","16 cm","","",4.39,9.90,"7864179982566",0],
+  ["TUBE-160-BP","TUBE","Leurre souple","Bleu pastel","16 cm","","",4.39,9.90,"7864179971560",0],
 ];
 
 // Convertit le tableau brut en objets utilisables
