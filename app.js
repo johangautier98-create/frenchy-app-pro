@@ -5233,27 +5233,22 @@ window.flFormatDownload = async function(fmt){
 
 async function flDownloadPDF(html, filename){
   if(typeof html2pdf === 'undefined'){ alert('❌ Librairie PDF non disponible. Utilisez 🖨️ Imprimer → Enregistrer en PDF.'); return; }
-  // Extraire le contenu body + les styles
   var bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
   var bodyContent = bodyMatch ? bodyMatch[1] : html;
   var styles = ''; var styleRe = /<style[^>]*>([\s\S]*?)<\/style>/gi; var sm;
   while((sm = styleRe.exec(html)) !== null) styles += sm[1]+'\n';
-  // Supprimer auto-print
   styles = styles.replace(/window\.onload[^}]+\}/g,'').replace(/@page[^}]*\}/g,'');
-  // IMPORTANT : html2pdf.js calcule une hauteur de 0 (page blanche au final) pour tout
-  // élément positionné hors du flux normal (position:absolute/fixed), même très loin
-  // hors écran. Solution : le wrapper reste dans le flux normal (mesure correcte), et
-  // c'est un conteneur EXTÉRIEUR (hidden-box) qui le rend invisible à l'écran.
-  var hiddenBox = document.createElement('div');
-  hiddenBox.style.cssText = 'height:0;overflow:hidden;';
+  // Le wrapper doit être dans le flux normal (position:static) ET visible par html2canvas.
+  // overflow:hidden sur un parent bloque le rendu pixel même si la hauteur est correcte.
+  // Solution : on l'ajoute directement au body en bas de page (hors écran visible), on génère
+  // le PDF, puis on le supprime. L'utilisateur ne voit rien car c'est en bas du DOM.
   var wrapper = document.createElement('div');
-  wrapper.style.cssText = 'width:190mm;background:#fff;color:#111;font-family:Arial,sans-serif;font-size:11px;';
+  wrapper.style.cssText = 'width:190mm;background:#fff;color:#111;font-family:Arial,sans-serif;font-size:11px;position:relative;';
   var styleEl = document.createElement('style');
-  styleEl.textContent = styles + ' body,html{background:#fff!important;margin:18px;}';
+  styleEl.textContent = styles + ' body,html{background:#fff!important;}';
   wrapper.appendChild(styleEl);
   var content = document.createElement('div');
   content.innerHTML = bodyContent;
-  // Supprimer le script auto-print s'il reste
   content.querySelectorAll('script').forEach(function(s){ s.remove(); });
   // Convertir les images en base64 pour éviter les blocages CORS dans html2canvas
   var imgs = Array.from(content.querySelectorAll('img[src]'));
@@ -5272,20 +5267,25 @@ async function flDownloadPDF(html, filename){
     }catch(e){ img.style.display='none'; }
   }));
   wrapper.appendChild(content);
-  hiddenBox.appendChild(wrapper);
-  document.body.appendChild(hiddenBox);
+  var savedScrollY = window.scrollY;
+  document.body.appendChild(wrapper);
+  // Attendre que le navigateur calcule le layout
+  await new Promise(function(r){ requestAnimationFrame(function(){ requestAnimationFrame(r); }); });
   try{
     await html2pdf().set({
       margin:[8,8,8,8],
       filename:filename,
-      image:{type:'jpeg',quality:0.97},
+      image:{type:'jpeg',quality:0.92},
       html2canvas:{scale:2,useCORS:true,allowTaint:false,logging:false,backgroundColor:'#ffffff'},
       jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
     }).from(wrapper).save();
   }catch(e){
     console.warn('PDF err:',e);
     alert('⚠️ Erreur génération PDF.\nUtilisez 🖨️ Imprimer → "Enregistrer en PDF" dans votre navigateur.');
-  }finally{ hiddenBox.remove(); }
+  }finally{
+    wrapper.remove();
+    window.scrollTo(0, savedScrollY);
+  }
 }
 
 async function flDownloadPPTX(html, filename){
