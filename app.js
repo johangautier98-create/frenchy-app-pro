@@ -5255,6 +5255,22 @@ async function flDownloadPDF(html, filename){
   content.innerHTML = bodyContent;
   // Supprimer le script auto-print s'il reste
   content.querySelectorAll('script').forEach(function(s){ s.remove(); });
+  // Convertir les images en base64 pour éviter les blocages CORS dans html2canvas
+  var imgs = Array.from(content.querySelectorAll('img[src]'));
+  await Promise.all(imgs.map(async function(img){
+    var src = img.getAttribute('src');
+    if(!src || src.startsWith('data:')) return;
+    try{
+      var resp = await fetch(src, {mode:'cors', cache:'force-cache'});
+      var blob = await resp.blob();
+      await new Promise(function(res){
+        var r = new FileReader();
+        r.onload = function(e){ img.src = e.target.result; res(); };
+        r.onerror = function(){ img.removeAttribute('src'); res(); };
+        r.readAsDataURL(blob);
+      });
+    }catch(e){ img.style.display='none'; }
+  }));
   wrapper.appendChild(content);
   hiddenBox.appendChild(wrapper);
   document.body.appendChild(hiddenBox);
@@ -5263,7 +5279,7 @@ async function flDownloadPDF(html, filename){
       margin:[8,8,8,8],
       filename:filename,
       image:{type:'jpeg',quality:0.97},
-      html2canvas:{scale:2,useCORS:true,logging:false,backgroundColor:'#ffffff'},
+      html2canvas:{scale:2,useCORS:true,allowTaint:false,logging:false,backgroundColor:'#ffffff'},
       jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
     }).from(wrapper).save();
   }catch(e){
