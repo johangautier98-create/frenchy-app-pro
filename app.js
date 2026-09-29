@@ -5189,6 +5189,24 @@ function cabDownload(t){
   _cabArchive(t);
 }
 
+window.magDownloadBoth = async function(){
+  var num=(document.getElementById('mag-inv-num')||{}).value||'FL-2026-001';
+  var base=todayISO()+'_'+flV35SanitizeFilename(num);
+  var hInv=magGenDoc('invoice'); var hBL=magGenDoc('delivery');
+  if(!hInv&&!hBL){alert('Remplissez la facture avant de télécharger.');return;}
+  if(hInv) await flDownloadPDF(hInv, base+'_Facture.pdf');
+  if(hBL){ await new Promise(function(r){setTimeout(r,600);}); await flDownloadPDF(hBL, base+'_BL.pdf'); }
+};
+
+window.cabDownloadBoth = async function(){
+  var num=(document.getElementById('cab-inv-num')||{}).value||'FL-2026-001';
+  var base=todayISO()+'_Cabesto_'+flV35SanitizeFilename(num);
+  var hInv=cabGenDoc('invoice'); var hBL=cabGenDoc('delivery');
+  if(!hInv&&!hBL){alert('Remplissez la facture avant de télécharger.');return;}
+  if(hInv) await flDownloadPDF(hInv, base+'_Facture.pdf');
+  if(hBL){ await new Promise(function(r){setTimeout(r,600);}); await flDownloadPDF(hBL, base+'_BL.pdf'); }
+};
+
 // extractQty// extractQty default handled in factuAnalyze
 
 // ═══════════════════════════════════════════════════════════════════════

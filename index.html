@@ -687,6 +687,10 @@ Rouget 9cm 14g x8"></textarea>
         <button class="btn" style="background:#6a1b9a;color:#fff;border-color:#6a1b9a;font-weight:700;" onclick="magPrint('commande')">🖨️ Imprimer</button>
         <button class="btn btn-dark" onclick="magDownload('commande')">⬇️ Télécharger</button>
       </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#e8f5e9;border-radius:8px;border-left:3px solid #2e7d32;">
+        <span style="font-size:11px;font-weight:800;color:#2e7d32;letter-spacing:.05em;min-width:75px;">📥 LES 2</span>
+        <button class="btn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-weight:700;font-size:13px;" onclick="magDownloadBoth()" title="Télécharge la Facture et le Bon de Livraison en 2 PDFs séparés">⬇️ Télécharger Facture + BL (PDF)</button>
+      </div>
     </div>
     <button class="btn-go-print" id="mag-go-print" onclick="goToCommandeFromFactu('mag')">
       🖨️ Aller imprimer vos codes-barres →
@@ -794,6 +798,10 @@ Rouget 9cm 14g x8"></textarea>
         <button class="btn" style="background:#7b1fa2;color:#fff;border-color:#7b1fa2;font-weight:700;" onclick="_cabArchive('commande',{autoDownload:true})">💾 Enregistrer</button>
         <button class="btn" style="background:#6a1b9a;color:#fff;border-color:#6a1b9a;font-weight:700;" onclick="cabPrint('commande')">🖨️ Imprimer</button>
         <button class="btn btn-dark" onclick="cabDownload('commande')">⬇️ Télécharger</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#e8f5e9;border-radius:8px;border-left:3px solid #2e7d32;">
+        <span style="font-size:11px;font-weight:800;color:#2e7d32;letter-spacing:.05em;min-width:75px;">📥 LES 2</span>
+        <button class="btn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-weight:700;font-size:13px;" onclick="cabDownloadBoth()" title="Télécharge la Facture et le Bon de Livraison en 2 PDFs séparés">⬇️ Télécharger Facture + BL (PDF)</button>
       </div>
       <div id="cab-packing-info" style="margin:8px 0 4px;padding:8px 12px;background:#0a2a0a;border:1px solid #1a5e20;border-radius:6px;font-size:12px;display:flex;gap:16px;flex-wrap:wrap">
         <span style="color:#aaa">🏪 CDE magasin : <strong id="cab-cde-display" style="color:#66bb6a">— (détecté à l'import)</strong></span>
