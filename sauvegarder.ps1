@@ -1,4 +1,4 @@
-# Sauvegarde de l'application Pro : GitHub (branche master) + copie datée sur le Bureau.
+﻿# Sauvegarde de l'application Pro : GitHub (branche master) + copie datée sur le Bureau.
 # Ne supprime jamais rien : chaque copie du Bureau est un nouveau dossier.
 param([string]$Message = "Sauvegarde automatique")
 
@@ -25,3 +25,4 @@ $dest = Join-Path ([Environment]::GetFolderPath('Desktop')) "Sauvegardes Frenchy
 robocopy $projet $dest /E /XD .git node_modules .vercel /XF .env .env.* *.env .github-config.json /NFL /NDL /NJH /NJS /NP | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "La copie sur le Bureau a échoué (code $LASTEXITCODE)." }
 Write-Host "Bureau : copie dans $dest"
+exit 0
