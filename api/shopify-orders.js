@@ -3,25 +3,12 @@
 //   SHOPIFY_RAVAGER_TOKEN   shpat_...
 //   SHOPIFY_FL_TOKEN        shpat_...
 
+const { requireUser } = require('./_lib/auth');
+
 module.exports = async function handler(req, res) {
-  const allowedOrigins = ['https://frenchy-app-pro-git-master-johangautier98-creates-projects.vercel.app','https://frenchy-app-pro.vercel.app'];
-  const origin = req.headers.origin || '';
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigins.includes(origin) ? origin : allowedOrigins[0]);
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'x-admin-key,Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'GET') return res.status(405).json({ ok: false, error: 'Methode non autorisee' });
-  // Auth — fail-closed : si ADMIN_API_KEY est défini, il DOIT correspondre
-  const crypto = require('crypto');
-  const adminKey = process.env.ADMIN_API_KEY;
-  if (adminKey) {
-    const presented = req.headers['x-admin-key'] || '';
-    const a = Buffer.from(presented.padEnd(adminKey.length, '\0'));
-    const b = Buffer.from(adminKey);
-    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-      return res.status(401).json({ ok: false, error: 'Non autorise' });
-    }
-  }
+  if (!(await requireUser(req, res))) return;
 
   const store = (req.query.store || '').toLowerCase();
   const limit = Math.min(parseInt(req.query.limit) || 50, 250);

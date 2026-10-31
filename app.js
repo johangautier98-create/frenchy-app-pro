@@ -17,8 +17,34 @@
     return;
   }
 
+  // Ajoute la session aux appels /api et déclenche la sauvegarde PC après chaque écriture réussie en base.
+  var _nativeFetch = window.fetch.bind(window);
+  window.fetch = async function(input, init){
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+    var method = String((init && init.method) || (input && typeof input !== 'string' && input.method) || 'GET').toUpperCase();
+    if (/^\/api\//.test(url) || url.indexOf(location.origin + '/api/') === 0) {
+      try {
+        var sess = window.db ? (await window.db.auth.getSession()).data.session : null;
+        if (sess) {
+          init = Object.assign({}, init || {});
+          var hdrs = new Headers(init.headers || (typeof input !== 'string' && input.headers) || {});
+          hdrs.set('Authorization', 'Bearer ' + sess.access_token);
+          init.headers = hdrs;
+        }
+      } catch(e) {}
+    }
+    var resp = await _nativeFetch(input, init);
+    if (resp.ok && method !== 'GET' && method !== 'HEAD' && url.indexOf(SB_URL + '/rest/v1/') === 0 && typeof window.flScheduleLocalBackup === 'function') {
+      window.flScheduleLocalBackup(3000);
+    }
+    return resp;
+  };
+
   // ── Création du client partagé ──
-  var _client = window.supabase.createClient(SB_URL, SB_KEY);
+  var _client = window.supabase.createClient(SB_URL, SB_KEY, {
+    global: { fetch: function(){ return window.fetch.apply(window, arguments); } },
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  });
   window.db = _client; // Accessible dans tous les scripts suivants
   console.log('✅ Supabase initialisé — window.db prêt (Frenchy Leurres B2B)');
 
@@ -213,6 +239,7 @@ function flOfflineUpdateBanner(){
 
 async function flOfflineSyncQueue(){
   if(!_flOfflineDB || !navigator.onLine || !window.db) return;
+  try{ if(!(await window.db.auth.getSession()).data.session) return; }catch(e){ return; }
   var keys = await new Promise(function(res){
     try{
       var tx = _flOfflineDB.transaction('queue','readonly');
@@ -917,17 +944,231 @@ function updateQueueIndicator(){
 // ═══════════════════════════════════════════════════════
 // CATALOGUE UI
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// CATALOGUE — rangé par catégorie → modèle → taille → grammage → couleur
+// (les écritures différentes d'un même modèle, d'une même taille ou d'un même grammage sont regroupées à l'affichage)
+// ═══════════════════════════════════════════════════════
+var catActiveCat = 'all';
+var catFSize = '';
+var catFGram = '';
+var catHighlightRef = '';
+var FL_CATS = [
+  ['Leurre prêt à pêcher', 'Prêts à pêcher'], ['Leurre souple', 'Leurres souples'],
+  ['Leurre spécial sparidé', 'Spécial sparidés'], ['Corps souple', 'Corps souples'], ['Accessoire', 'Accessoires']
+];
+function flCatEsc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function flCatLabel(f){ for (var i = 0; i < FL_CATS.length; i++) if (FL_CATS[i][0] === f) return FL_CATS[i][1]; return f === 'Autre' ? 'Autres produits' : (f || 'Autres produits'); }
+function flCatOrder(f){ for (var i = 0; i < FL_CATS.length; i++) if (FL_CATS[i][0] === f) return i; return 99; }
+function flIsCat(f){ return flCatOrder(f) < 99; }
+
+function flModelIndex(){
+  var idx = {};
+  CATALOGUE.forEach(function(p){
+    var k = String(p.produit || '').trim().toLowerCase();
+    if (!k || !flIsCat(p.famille)) return;
+    if (!idx[k] || (idx[k].custom && !p._custom)) idx[k] = {name: String(p.produit).trim(), famille: p.famille, custom: !!p._custom};
+  });
+  return idx;
+}
+function flCanonModel(p, idx){
+  var k = String(p.produit || '').trim().toLowerCase();
+  return idx[k] ? idx[k].name : (String(p.produit || '').trim() || 'Sans nom');
+}
+function flCanonCat(p, idx){
+  if (flIsCat(p.famille)) return p.famille;
+  var txt = (String(p.produit || '') + ' ' + String(p.famille || '')).toLowerCase();
+  if (/corps/.test(txt)) return 'Corps souple';
+  var m = idx[String(p.produit || '').trim().toLowerCase()] || idx[String(p.famille || '').trim().toLowerCase()];
+  return m ? m.famille : 'Autre';
+}
+function flFrNum(n){ return String(Math.round(n * 100) / 100).replace('.', ','); }
+function flSizeInfo(t){
+  var s = String(t || '').trim(), l = s.toLowerCase().replace(',', '.'), m;
+  if (!s) return {key: 'z', label: 'Sans taille', rank: [3, 0]};
+  if ((m = l.match(/^taille\s*(\d+)/))) return {key: 't' + m[1], label: 'Taille ' + m[1], rank: [0, +m[1]]};
+  if ((m = l.match(/^([\d.]+)\s*mm$/))) return {key: 'mm' + (+m[1]), label: flFrNum(+m[1]) + ' mm', rank: [1, +m[1]]};
+  if ((m = l.match(/^([\d.]+)\s*(cm)?$/))) return {key: 'cm' + (+m[1]), label: flFrNum(+m[1]) + ' cm', rank: [1, +m[1] * 10]};
+  return {key: 'x' + l, label: s, rank: [2, 0]};
+}
+function flGramInfo(g){
+  var s = String(g || '').trim(), l = s.toLowerCase().replace(',', '.'), m;
+  if (!s) return {key: 'z', label: 'Sans grammage', rank: 1e9};
+  if ((m = l.match(/^([\d.]+)\s*(g|gr|gramme?s?)?$/))) return {key: 'g' + (+m[1]), label: flFrNum(+m[1]) + ' g', rank: +m[1]};
+  if ((m = l.match(/^([\d.]+)/))) return {key: 'g' + (+m[1]) + l, label: s, rank: +m[1]};
+  return {key: 'x' + l, label: s, rank: 1e8};
+}
+function flCmpRank(a, b){ return (a[0] - b[0]) || (a[1] - b[1]); }
+
+function flCatScope(p, idx){
+  if (catActiveCat !== 'all' && flCanonCat(p, idx) !== catActiveCat) return false;
+  if (activeFilter !== 'Tous' && flCanonModel(p, idx) !== activeFilter) return false;
+  return true;
+}
+
 function buildFilters(){
-  const bar=document.getElementById('filter-bar');
-  const produits=['Tous',...new Set(CATALOGUE.map(p=>p.produit))];
-  bar.innerHTML=produits.map(p=>`<span class="filter-chip${p===activeFilter?' active':''}" onclick="setFilter('${p}')">${p}</span>`).join('');
+  var idx = flModelIndex();
+  var cats = document.getElementById('cat-cats');
+  if (cats){
+    var counts = {};
+    CATALOGUE.forEach(function(p){ var c = flCanonCat(p, idx); counts[c] = (counts[c] || 0) + 1; });
+    var keys = Object.keys(counts).sort(function(a, b){ return flCatOrder(a) - flCatOrder(b) || a.localeCompare(b, 'fr'); });
+    if (catActiveCat !== 'all' && !counts[catActiveCat]) catActiveCat = 'all';
+    cats.innerHTML = '<button type="button" class="cat-tab' + (catActiveCat === 'all' ? ' active' : '') + '" data-catf="all">Tout <b>' + CATALOGUE.length + '</b></button>' +
+      keys.map(function(k){ return '<button type="button" class="cat-tab' + (catActiveCat === k ? ' active' : '') + '" data-catf="' + flCatEsc(k) + '">' + flCatEsc(flCatLabel(k)) + ' <b>' + counts[k] + '</b></button>'; }).join('');
+  }
+  var bar = document.getElementById('filter-bar');
+  if (bar){
+    var models = {};
+    CATALOGUE.forEach(function(p){ if (catActiveCat !== 'all' && flCanonCat(p, idx) !== catActiveCat) return; var n = flCanonModel(p, idx); models[n] = (models[n] || 0) + 1; });
+    if (activeFilter !== 'Tous' && !models[activeFilter]) activeFilter = 'Tous';
+    bar.innerHTML = '<span class="filter-chip' + (activeFilter === 'Tous' ? ' active' : '') + '" data-model="Tous">Tous les modèles</span>' +
+      Object.keys(models).sort(function(a, b){ return a.localeCompare(b, 'fr'); }).map(function(n){
+        return '<span class="filter-chip' + (n === activeFilter ? ' active' : '') + '" data-model="' + flCatEsc(n) + '">' + flCatEsc(n) + ' <b>' + models[n] + '</b></span>';
+      }).join('');
+  }
+  var scope = CATALOGUE.filter(function(p){ return flCatScope(p, idx); });
+  var sizes = {}, grams = {};
+  scope.forEach(function(p){ var s = flSizeInfo(p.taille); sizes[s.key] = s; });
+  if (catFSize && !sizes[catFSize]) catFSize = '';
+  scope.forEach(function(p){ if (catFSize && flSizeInfo(p.taille).key !== catFSize) return; var g = flGramInfo(p.grammage); grams[g.key] = g; });
+  if (catFGram && !grams[catFGram]) catFGram = '';
+  var fs = document.getElementById('cat-f-size'), fg = document.getElementById('cat-f-gram');
+  if (fs) fs.innerHTML = '<option value="">Toutes les tailles</option>' + Object.keys(sizes).map(function(k){ return sizes[k]; }).sort(function(a, b){ return flCmpRank(a.rank, b.rank); })
+    .map(function(s){ return '<option value="' + flCatEsc(s.key) + '"' + (s.key === catFSize ? ' selected' : '') + '>' + flCatEsc(s.label) + '</option>'; }).join('');
+  if (fg) fg.innerHTML = '<option value="">Tous les grammages</option>' + Object.keys(grams).map(function(k){ return grams[k]; }).sort(function(a, b){ return a.rank - b.rank; })
+    .map(function(g){ return '<option value="' + flCatEsc(g.key) + '"' + (g.key === catFGram ? ' selected' : '') + '>' + flCatEsc(g.label) + '</option>'; }).join('');
 }
 
 function setFilter(name){
-  activeFilter=name;
+  activeFilter = name || 'Tous';
+  catFSize = ''; catFGram = '';
   buildFilters();
   renderCatalogue();
 }
+function flSetCatCategory(f){
+  catActiveCat = f || 'all';
+  activeFilter = 'Tous'; catFSize = ''; catFGram = '';
+  buildFilters();
+  renderCatalogue();
+}
+
+function flBuildCatCard(p){
+  var card = document.createElement('div');
+  card.className = 'cat-card' + (p._custom ? ' cat-card-custom' : '') + (p.ref === catHighlightRef ? ' cat-card-new' : '');
+  card.setAttribute('data-ref', p.ref);
+  var bcDiv = document.createElement('div');
+  bcDiv.className = 'cat-card-bc';
+  if (p.ean){ var c = makeSmallEAN(p.ean); c.style.maxHeight = '48px'; bcDiv.appendChild(c); }
+  card.appendChild(bcDiv);
+  var safeId = String(p.ref).replace(/[^a-z0-9]/gi, '');
+  var refJs = flCatEsc(String(p.ref).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+  var htStr = p.ht ? Number(p.ht).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' € HT' : '';
+  var pvcStr = p.pvc ? Number(p.pvc).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' € PVC' : '';
+  var priceStr = [htStr, pvcStr].filter(Boolean).join(' — ');
+  var body = document.createElement('div');
+  body.className = 'cat-card-body';
+  body.innerHTML =
+    '<div class="cat-card-header"><span class="cat-card-color">' + flCatEsc(p.couleur || p.produit) + '</span>' +
+      (p.ref === catHighlightRef ? '<span class="cat-badge-custom" style="background:var(--accent);color:var(--primary)">Nouveau</span>' : (p._custom ? '<span class="cat-badge-custom">✎ Perso</span>' : '')) + '</div>' +
+    (p.couleur ? '<div class="cat-card-produit">' + flCatEsc(p.produit) + '</div>' : '') +
+    '<div class="cat-card-badges">' +
+      (p.taille ? '<span class="cat-badge cat-badge-size">' + flCatEsc(flSizeInfo(p.taille).label) + '</span>' : '') +
+      (p.grammage ? '<span class="cat-badge cat-badge-gram">' + flCatEsc(flGramInfo(p.grammage).label) + '</span>' : '') +
+      (p.ronde ? '<span class="cat-badge cat-badge-shape">Ronde</span>' : '') +
+      (p.format === '50x40' ? '<span class="cat-badge cat-badge-fmt">50×40</span>' : '') +
+    '</div>' +
+    '<div class="cat-card-ref">' + flCatEsc(p.ref) + '</div>' +
+    (priceStr ? '<div class="cat-card-price">' + priceStr + '</div>' : '');
+  card.appendChild(body);
+  var actions = document.createElement('div');
+  actions.className = 'cat-card-actions';
+  actions.innerHTML =
+    '<div class="cat-action-top">' +
+      '<input type="number" min="1" value="1" class="cat-qty" id="catqty-' + safeId + '" />' +
+      '<button class="cat-btn-add" onclick="quickAddFromCatalogue(\'' + refJs + '\')">+ Fichier</button>' +
+    '</div>' +
+    '<div class="cat-action-btns">' +
+      '<button class="cat-btn-icon" onclick="previewProduct(\'' + refJs + '\')" title="Aperçu">👁</button>' +
+      '<button class="cat-btn-icon cat-btn-dup" onclick="duplicateProduct(\'' + refJs + '\')" title="Dupliquer">📋</button>' +
+      '<button class="cat-btn-icon cat-btn-edit" onclick="openEditManualModal(\'' + refJs + '\')" title="Modifier">✏️</button>' +
+      (p._custom ? '<button class="cat-btn-icon cat-btn-del" onclick="deleteCustomProduct(\'' + refJs + '\')" title="Supprimer">🗑</button>' : '') +
+    '</div>';
+  card.appendChild(actions);
+  return card;
+}
+
+function renderCatalogue(){
+  var idx = flModelIndex();
+  var qEl = document.getElementById('cat-search');
+  var q = qEl ? qEl.value.trim().toLowerCase() : '';
+  var items = CATALOGUE.filter(function(p){
+    if (!flCatScope(p, idx)) return false;
+    if (catFSize && flSizeInfo(p.taille).key !== catFSize) return false;
+    if (catFGram && flGramInfo(p.grammage).key !== catFGram) return false;
+    if (q && [p.ref, p.couleur, p.taille, p.grammage, p.produit, p.famille].join(' ').toLowerCase().indexOf(q) === -1) return false;
+    return true;
+  });
+  var countEl = document.getElementById('cat-count');
+  if (countEl) countEl.textContent = items.length + '/' + CATALOGUE.length;
+  var om = document.getElementById('cat-order-mode');
+  if (om) om.style.display = 'none';
+  var grid = document.getElementById('cat-grid');
+  if (!grid) return;
+  grid.classList.add('cat-grouped');
+  if (!items.length){ grid.innerHTML = '<div class="empty-state"><div class="es-icon">🔍</div><p>Aucun produit ne correspond.</p></div>'; return; }
+  grid.innerHTML = '';
+  var tree = {};
+  items.forEach(function(p){
+    var c = flCanonCat(p, idx), m = flCanonModel(p, idx);
+    tree[c] = tree[c] || {};
+    (tree[c][m] = tree[c][m] || []).push(p);
+  });
+  Object.keys(tree).sort(function(a, b){ return flCatOrder(a) - flCatOrder(b) || a.localeCompare(b, 'fr'); }).forEach(function(c){
+    var ct = document.createElement('div');
+    ct.className = 'cat-cat-title';
+    ct.textContent = flCatLabel(c);
+    grid.appendChild(ct);
+    Object.keys(tree[c]).sort(function(a, b){ return a.localeCompare(b, 'fr'); }).forEach(function(m){
+      var list = tree[c][m];
+      var sec = document.createElement('section');
+      sec.className = 'cat-model';
+      sec.innerHTML = '<header class="cat-model-head"><h3>' + flCatEsc(m) + '</h3><span>' + list.length + ' référence' + (list.length > 1 ? 's' : '') + '</span></header>';
+      var bySize = {};
+      list.forEach(function(p){ var s = flSizeInfo(p.taille); (bySize[s.key] = bySize[s.key] || {info: s, items: []}).items.push(p); });
+      Object.keys(bySize).map(function(k){ return bySize[k]; }).sort(function(a, b){ return flCmpRank(a.info.rank, b.info.rank); }).forEach(function(sz){
+        var sh = document.createElement('div');
+        sh.className = 'cat-size-head';
+        sh.innerHTML = '<span class="cat-size-pill">' + flCatEsc(sz.info.label) + '</span><hr>';
+        sec.appendChild(sh);
+        var byGram = {};
+        sz.items.forEach(function(p){ var g = flGramInfo(p.grammage); (byGram[g.key] = byGram[g.key] || {info: g, items: []}).items.push(p); });
+        Object.keys(byGram).map(function(k){ return byGram[k]; }).sort(function(a, b){ return a.info.rank - b.info.rank; }).forEach(function(gr){
+          var gh = document.createElement('div');
+          gh.className = 'cat-gram-head';
+          gh.innerHTML = '<span class="cat-gram-pill">' + flCatEsc(gr.info.label) + '</span><span class="cat-gram-count">' + gr.items.length + ' couleur' + (gr.items.length > 1 ? 's' : '') + '</span>';
+          sec.appendChild(gh);
+          var sub = document.createElement('div');
+          sub.className = 'cat-subgrid';
+          gr.items.sort(function(a, b){ return String(a.couleur || '').localeCompare(String(b.couleur || ''), 'fr'); }).forEach(function(p){ sub.appendChild(flBuildCatCard(p)); });
+          sec.appendChild(sub);
+        });
+      });
+      grid.appendChild(sec);
+    });
+  });
+}
+
+document.addEventListener('click', function(e){
+  var t = e.target && e.target.closest ? e.target.closest('[data-catf],[data-model]') : null;
+  if (!t || !t.closest('#page-catalogue')) return;
+  if (t.hasAttribute('data-catf')) flSetCatCategory(t.getAttribute('data-catf'));
+  else setFilter(t.getAttribute('data-model'));
+});
+document.addEventListener('change', function(e){
+  if (!e.target) return;
+  if (e.target.id === 'cat-f-size'){ catFSize = e.target.value; catFGram = ''; buildFilters(); renderCatalogue(); }
+  else if (e.target.id === 'cat-f-gram'){ catFGram = e.target.value; renderCatalogue(); }
+});
 
 // renderCatalogue et quickAddFromCatalogue définis plus bas (version complète)
 
@@ -1125,21 +1366,65 @@ function makeBarcodeDataURL(ean){
   return c.toDataURL();
 }
 function safeTxt(v){ return String(v||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+// Chaque ligne de texte prend la plus grande taille possible (jusqu'au réglage choisi) sans être coupée.
+var _flMeasureCanvas = null;
+function flMeasureText(text, font){
+  if(!_flMeasureCanvas) _flMeasureCanvas = document.createElement('canvas');
+  var ctx = _flMeasureCanvas.getContext('2d');
+  ctx.font = font;
+  return ctx.measureText(text).width;
+}
+function flFitLine(text, maxPx, availPx, family, weight, minPx){
+  var t = String(text || '');
+  maxPx = +maxPx || 10;
+  if(!t) return {size: maxPx, wrap: false, reduced: false};
+  var w = flMeasureText(t, weight + ' ' + maxPx + 'px ' + family);
+  if(w <= availPx) return {size: maxPx, wrap: false, reduced: false};
+  var fit = Math.floor(maxPx * availPx / w * 10) / 10;
+  if(fit >= minPx) return {size: fit, wrap: false, reduced: fit < maxPx * 0.8};
+  var fit2 = Math.min(maxPx, Math.floor(maxPx * availPx * 1.85 / w * 10) / 10);
+  return {size: Math.max(minPx, fit2), wrap: true, reduced: true};
+}
+var FL_AB = "'Arial Black',Arial,sans-serif";
+function flLabelFitInfo(p, pw){
+  var avail = Math.max(10, (pw - 2 * (+printSettings.rectPad || 0)) * 3.7795 * 0.95);
+  var ligne2 = (p.taille || '') + (p.grammage ? ' / ' + p.grammage : '');
+  return {
+    title: flFitLine(String(p.couleur || p.produit || '').toUpperCase(), printSettings.titleFont, avail, FL_AB, 900, 7),
+    info: flFitLine(ligne2, printSettings.infoFont, avail, FL_AB, 900, 7),
+    ref: flFitLine(p.ref, printSettings.refFont, avail, 'Arial,sans-serif', 400, 6),
+    ligne2: ligne2
+  };
+}
+function flLineCss(f){
+  return f.wrap
+    ? 'white-space:normal;word-break:break-word;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;'
+    : 'white-space:nowrap;overflow:hidden;';
+}
 function buildLabelHTML(p,pw,ph, pageBreak=true){
-  const ligne2=(p.taille||'')+(p.grammage?' / '+p.grammage:'');
+  const fit=flLabelFitInfo(p,pw);
   const bcImg=p.ean ? makeBarcodeDataURL(p.ean) : '';
+  const bcMax=fit.title.wrap?36:42;
   return `<div class="print-label-rect" style="width:${pw}mm;height:${ph}mm;background:#fff;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:${printSettings.rectPad}mm;overflow:hidden;${pageBreak?'page-break-after:always;break-after:page;':''}">
-    <div style="font-family:'Arial Black',Arial,sans-serif;font-size:${printSettings.titleFont}px;font-weight:900;text-transform:uppercase;text-align:center;color:#000;line-height:1.05;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${safeTxt(p.couleur||p.produit)}</div>
-    <div style="font-family:'Arial Black',Arial,sans-serif;font-size:${printSettings.infoFont}px;font-weight:900;text-align:center;color:#000;line-height:1.05;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${safeTxt(ligne2)}</div>
-    <div style="font-family:Arial,sans-serif;font-size:${printSettings.refFont}px;text-align:center;color:#000;line-height:1.1;margin:1px 0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${safeTxt(p.ref)}</div>
-    ${bcImg?`<img src="${bcImg}" style="width:96%;max-height:42%;object-fit:contain;display:block;"/>`:''}
+    <div style="font-family:${FL_AB};font-size:${fit.title.size}px;font-weight:900;text-transform:uppercase;text-align:center;color:#000;line-height:1.05;max-width:100%;${flLineCss(fit.title)}">${safeTxt(p.couleur||p.produit)}</div>
+    <div style="font-family:${FL_AB};font-size:${fit.info.size}px;font-weight:900;text-align:center;color:#000;line-height:1.05;max-width:100%;${flLineCss(fit.info)}">${safeTxt(fit.ligne2)}</div>
+    <div style="font-family:Arial,sans-serif;font-size:${fit.ref.size}px;text-align:center;color:#000;line-height:1.1;margin:1px 0;max-width:100%;${flLineCss(fit.ref)}">${safeTxt(p.ref)}</div>
+    ${bcImg?`<img src="${bcImg}" style="width:96%;max-height:${bcMax}%;object-fit:contain;display:block;"/>`:''}
   </div>`;
+}
+function flRoundFitInfo(p){
+  var avail = Math.max(10, (+printSettings.roundDiam || 15) * 3.7795 * 0.78);
+  return {
+    title: flFitLine(p ? p.taille : '', printSettings.roundTitle, avail, FL_AB, 900, 5),
+    sub: flFitLine(p ? p.grammage : '', printSettings.roundSub, avail, 'Arial,sans-serif', 700, 5)
+  };
 }
 function buildOneRoundHTML(p){
   const d=printSettings.roundDiam;
+  const fit=flRoundFitInfo(p);
   return `<div style="width:${d}mm;height:${d}mm;border-radius:50%;background:#fff;border:0.35px solid #bbb;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;">
-    <div style="font-family:'Arial Black',Arial,sans-serif;font-size:${printSettings.roundTitle}px;font-weight:900;text-align:center;color:#000;line-height:1.05;">${safeTxt(p?.taille||'')}</div>
-    <div style="font-family:Arial,sans-serif;font-size:${printSettings.roundSub}px;font-weight:700;text-align:center;color:#000;line-height:1.05;">${safeTxt(p?.grammage||'')}</div>
+    <div style="font-family:${FL_AB};font-size:${fit.title.size}px;font-weight:900;text-align:center;color:#000;line-height:1.05;max-width:86%;${flLineCss(fit.title)}">${safeTxt(p?.taille||'')}</div>
+    <div style="font-family:Arial,sans-serif;font-size:${fit.sub.size}px;font-weight:700;text-align:center;color:#000;line-height:1.05;max-width:86%;${flLineCss(fit.sub)}">${safeTxt(p?.grammage||'')}</div>
   </div>`;
 }
 function buildRoundPairHTML(p1,p2,pageBreak=true){
@@ -1211,8 +1496,9 @@ function openPrintWindow(body,size){
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>Impression etiquettes Frenchy Leurres</title>
 <style>
-@page{size:${size.w} ${size.h};margin:0;}
-html,body{margin:0!important;padding:0!important;background:#fff;width:${size.w};height:${size.h};}
+@page{margin:0;}
+html,body{margin:0!important;padding:0!important;background:#fff;width:${size.w};}
+${flPrintFitCss(size)}
 *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 </style>
 </head><body>${body}</body></html>`;
@@ -2257,144 +2543,6 @@ window.moveCard=moveCard;
 window.resetCatalogueOrder=resetCatalogueOrder;
 // ─────────────────────────────────────────────────────────
 
-function renderCatalogue(){
-  const q=document.getElementById('cat-search').value.trim().toLowerCase();
-  let items=[...CATALOGUE];
-  if(activeFilter!=='Tous') items=items.filter(p=>p.produit===activeFilter);
-  if(q) items=items.filter(p=>[p.ref,p.couleur,p.taille,p.grammage,p.produit,p.famille].join(' ').toLowerCase().includes(q));
-
-  const _co=getCatalogueOrder();
-  if(_co){
-    items.sort((a,b)=>{
-      const ia=_co.indexOf(a.ref),ib=_co.indexOf(b.ref);
-      if(ia===-1&&ib===-1) return a.produit.localeCompare(b.produit);
-      if(ia===-1) return 1; if(ib===-1) return -1;
-      return ia-ib;
-    });
-  } else {
-    items.sort((a,b)=>
-      a.produit.localeCompare(b.produit) ||
-      parseSizeNumberV15(a.taille)-parseSizeNumberV15(b.taille) ||
-      parseWeightNumberV15(a.grammage)-parseWeightNumberV15(b.grammage) ||
-      String(a.couleur||'').localeCompare(String(b.couleur||''))
-    );
-  }
-
-  document.getElementById('cat-count').textContent=items.length+'/'+CATALOGUE.length;
-  const _om=document.getElementById('cat-order-mode');
-  if(_om) _om.style.display=_co?'inline-flex':'none';
-  const grid=document.getElementById('cat-grid');
-  if(!items.length){grid.innerHTML='<div class="empty-state"><div class="es-icon">🔍</div><p>Aucun résultat</p></div>';return;}
-  grid.innerHTML='';
-  let lastLetter='';
-  items.forEach(p=>{
-    if(!_co){
-      const letter=(p.produit||'?')[0].toUpperCase();
-      if(letter!==lastLetter){
-        lastLetter=letter;
-        const h=document.createElement('div');
-        h.className='cat-alpha-section';
-        h.innerHTML='<div class="cat-alpha-letter">'+letter+'</div><div class="cat-alpha-line"></div>';
-        grid.appendChild(h);
-      }
-    }
-    const card=document.createElement('div');
-    card.className='cat-card'+(p._custom?' cat-card-custom':'');
-
-    const bcDiv=document.createElement('div');
-    bcDiv.className='cat-card-bc';
-    if(p.ean){
-      const c=makeSmallEAN(p.ean);
-      c.style.maxHeight='48px';
-      bcDiv.appendChild(c);
-    }
-    card.appendChild(bcDiv);
-
-    const safeId=p.ref.replace(/[^a-z0-9]/gi,'');
-    const htStr  = p.ht  ? Number(p.ht).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' € HT'  : '';
-    const pvcStr = p.pvc ? Number(p.pvc).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' € PVC' : '';
-    const priceStr = [htStr, pvcStr].filter(Boolean).join(' — ');
-
-    const body=document.createElement('div');
-    body.className='cat-card-body';
-    body.innerHTML=
-      '<div class="cat-card-header">'+
-        '<span class="cat-card-color">'+(p.couleur||p.produit)+'</span>'+
-        (p._custom?'<span class="cat-badge-custom">✎ Perso</span>':'')+
-      '</div>'+
-      (p.couleur?'<div class="cat-card-produit">'+p.produit+'</div>':'')+
-      '<div class="cat-card-badges">'+
-        (p.taille?'<span class="cat-badge cat-badge-size">'+p.taille+'</span>':'')+
-        (p.grammage?'<span class="cat-badge cat-badge-gram">'+p.grammage+'</span>':'')+
-        (p.ronde?'<span class="cat-badge cat-badge-shape">Ronde</span>':'')+
-        (p.format==='50x40'?'<span class="cat-badge cat-badge-fmt">50×40</span>':'')+
-      '</div>'+
-      '<div class="cat-card-ref">'+p.ref+'</div>'+
-      (priceStr?'<div class="cat-card-price">'+priceStr+'</div>':'');
-    card.appendChild(body);
-
-    const actions=document.createElement('div');
-    actions.className='cat-card-actions';
-    actions.innerHTML=
-      '<div class="cat-action-top">'+
-        '<input type="number" min="1" value="1" class="cat-qty" id="catqty-'+safeId+'" />'+
-        '<button class="cat-btn-add" onclick="quickAddFromCatalogue(\''+p.ref+'\')">+ Fichier</button>'+
-      '</div>'+
-      '<div class="cat-action-btns">'+
-        '<button class="cat-btn-icon" onclick="previewProduct(\''+p.ref+'\')" title="Aperçu">👁</button>'+
-        '<button class="cat-btn-icon cat-btn-dup" onclick="duplicateProduct(\''+p.ref+'\')" title="Dupliquer">📋</button>'+
-        '<button class="cat-btn-icon cat-btn-edit" onclick="openEditManualModal(\''+p.ref+'\')" title="Modifier">✏️</button>'+
-        (p._custom?'<button class="cat-btn-icon cat-btn-del" onclick="deleteCustomProduct(\''+p.ref+'\')" title="Supprimer">🗑</button>':'')+
-      '</div>';
-    card.appendChild(actions);
-
-    // Drag-and-drop pour réorganiser les cartes
-    card.draggable=true;
-    card.setAttribute('data-ref',p.ref);
-    const _ref=p.ref;
-    card.addEventListener('dragstart',function(e){
-      _catDragRef=_ref;
-      setTimeout(function(){card.classList.add('cat-dragging');},0);
-      e.dataTransfer.effectAllowed='move';
-    });
-    card.addEventListener('dragend',function(){
-      card.classList.remove('cat-dragging');
-      document.querySelectorAll('.cat-drag-over').forEach(function(c){c.classList.remove('cat-drag-over');});
-    });
-    card.addEventListener('dragover',function(e){
-      e.preventDefault();
-      if(_catDragRef && _catDragRef!==_ref){
-        document.querySelectorAll('.cat-drag-over').forEach(function(c){c.classList.remove('cat-drag-over');});
-        card.classList.add('cat-drag-over');
-      }
-    });
-    card.addEventListener('dragleave',function(){card.classList.remove('cat-drag-over');});
-    card.addEventListener('drop',function(e){
-      e.preventDefault();
-      card.classList.remove('cat-drag-over');
-      if(!_catDragRef||_catDragRef===_ref) return;
-      var order=getCatalogueOrder();
-      if(!order){
-        var all=[...CATALOGUE];
-        all.sort(function(a,b){return a.produit.localeCompare(b.produit)||parseSizeNumberV15(a.taille)-parseSizeNumberV15(b.taille)||parseWeightNumberV15(a.grammage)-parseWeightNumberV15(b.grammage)||String(a.couleur||'').localeCompare(String(b.couleur||''));});
-        order=all.map(function(p){return p.ref;});
-      }
-      if(order.indexOf(_catDragRef)===-1) order=order.concat([_catDragRef]);
-      if(order.indexOf(_ref)===-1) order=order.concat([_ref]);
-      var from=order.indexOf(_catDragRef);
-      var newOrder=order.slice();
-      newOrder.splice(from,1);
-      var to=newOrder.indexOf(_ref);
-      newOrder.splice(to,0,_catDragRef);
-      saveCatalogueOrder(newOrder);
-      renderCatalogue();
-      _catDragRef=null;
-    });
-
-    grid.appendChild(card);
-  });
-}
-
 function quickAddFromCatalogue(ref){
   const p=CATALOGUE.find(x=>x.ref===ref);
   if(!p) return;
@@ -3063,7 +3211,7 @@ const CABESTO_PRODUCTS = [
   {pe:"PE-0022893",  ref:"M2MARB.110",             ean:"0710535116489",des:"MOULE DE MARBELLA 110GR",   pu:3.71},
   {pe:"PE-0022894-98D1",ref:"PIERRE25",            ean:"7141094848536",des:"PIERRE DE MARSEILLE 25GR",  pu:2.85},
   {pe:"PE-0022894-7635",ref:"PIERRE45",            ean:"7141094849052",des:"PIERRE DE MARSEILLE 45GR",  pu:3.46},
-  {pe:"PE-0022894-3E37",ref:"PIERRE65",            ean:"7141094749120",des:"PIERRE DE MARSEILLE 65GR",  pu:3.96},
+  {pe:"PE-0022894-3E37",ref:"PIERRE65",            ean:"7141094849120",des:"PIERRE DE MARSEILLE 65GR",  pu:3.96},
   {pe:"PE-0022894-7636",ref:"PIERRE90",            ean:"7141094849212",des:"PIERRE DE MARSEILLE 85GR",  pu:4.35},
 ];
 
@@ -3164,6 +3312,7 @@ function renderClientCards(){
     var name=f.client_nom||'Inconnu';
     if(!clients[name])clients[name]={paid:0,unpaid:0};
     if(f.type_doc!=='facture')return; // cercles uniquement pour les factures
+    if(f.statut_paiement==='annule')return;
     if(f.statut_paiement==='paye')clients[name].paid++;
     else clients[name].unpaid++;
   });
@@ -3220,20 +3369,21 @@ function renderHistorique(){
     return true;
   });
   arr.sort(function(a,b){return String(b.date_facture||'').localeCompare(String(a.date_facture||''));});
-  var tp=0,ta=0,tr=0,nFact=0,nBL=0,nCmd=0;
+  var tp=0,ta=0,tr=0,nFact=0,nBL=0,nCmd=0,nAnn=0;
   arr.forEach(function(f){
+    if(f.type_doc==='facture'&&f.statut_paiement==='annule'){nAnn++;return;}
     if(f.type_doc==='facture'){nFact++;var m=+(f.montant_total)||0;if(f.statut_paiement==='paye')tp+=m;else if(f.statut_paiement==='retard')tr+=m;else ta+=m;}
     else if(f.type_doc==='bon_livraison')nBL++;
     else if(f.type_doc==='commande')nCmd++;
   });
   function se(id,v){var e=document.getElementById(id);if(e)e.textContent=v;}
   function mny2(n){return Number(n||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
-  se('histoKpiFactures',nFact);se('histoKpiBL',nBL);se('histoKpiCommandes',nCmd);
+  se('histoKpiFactures',nFact+(nAnn?' (+'+nAnn+' annulée'+(nAnn>1?'s':'')+')':''));se('histoKpiBL',nBL);se('histoKpiCommandes',nCmd);
   se('histoKpiPaye',mny2(tp));se('histoKpiAttente',mny2(ta));se('histoKpiRetard',mny2(tr));
   var list=document.getElementById('histoList');if(!list)return;
   if(!arr.length){list.innerHTML='<div style="text-align:center;padding:32px;color:#777;font-size:13px">Aucun document trouvé. Imprimer ou télécharger une facture pour la voir apparaître ici.</div>';return;}
-  var sc2={paye:'#2e7d32',en_attente:'#e65100',retard:'#c62828'};
-  var sl2={paye:'✅ Payé',en_attente:'⏳ En attente',retard:'🔴 En retard'};
+  var sc2={paye:'#2e7d32',en_attente:'#e65100',retard:'#c62828',annule:'#757575'};
+  var sl2={paye:'✅ Payé',en_attente:'⏳ En attente',retard:'🔴 En retard',annule:'🚫 Annulé — non compté'};
   var tl2={facture:'🧾 Facture',bon_livraison:'📦 Bon de livraison',commande:'🛒 Commande'};
   var tcl={magasin:'🏪',cabesto:'🔗'};
   var tcol={facture:'#1565c0',bon_livraison:'#e65100',commande:'#7b1fa2'};
@@ -3260,7 +3410,7 @@ function renderHistorique(){
     if(ym!==lastYM){
       var parts=ym.split('-');
       var label=parts.length===2?(_MOIS_FR[parseInt(parts[1],10)-1]||parts[1])+' '+parts[0]:ym;
-      html+='<div style="padding:12px 20px;background:#1a1a1a;font-size:15px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:.12em;border-bottom:2px solid #000;">📅 '+label+'</div>';
+      html+='<div style="padding:12px 20px;background:#1a1a1a;font-size:15px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:.12em;border-bottom:2px solid #000;">📅 '+fe(label)+'</div>';
       lastYM=ym;
     }
     var dateAff=(g.date||'').split('-').reverse().join('/');
@@ -3268,7 +3418,7 @@ function renderHistorique(){
     html+='<div style="border-bottom:2px solid var(--border);">';
     html+='<div style="padding:12px 18px;background:var(--card);display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid var(--border);">'
       +'<div style="font-weight:900;font-size:18px;line-height:1.2;">'+(tcl[g.typeClient]||'🏪')+'&nbsp;'+fe(g.client)+'<br><span style="font-family:monospace;font-size:13px;color:var(--accent);font-weight:700;">'+fe(g.base)+'</span></div>'
-      +'<div style="font-size:13px;font-weight:700;color:var(--muted);">📅 '+dateAff+'</div>'
+      +'<div style="font-size:13px;font-weight:700;color:var(--muted);">📅 '+fe(dateAff)+'</div>'
     +'</div>';
     // Sous-lignes pour chaque document
     g.docs.forEach(function(f,idx){
@@ -3276,21 +3426,26 @@ function renderHistorique(){
       var col=tcol[f.type_doc]||'#555';
       var isLast=idx===g.docs.length-1;
       var isFacture=f.type_doc==='facture';
+      var isAnn=f.statut_paiement==='annule';
       html+='<div style="display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:10px;padding:10px 16px;'+(isLast?'':'border-bottom:1px solid var(--border);')+'">'
         // Pastille type
         +'<div style="display:flex;align-items:center;gap:8px;min-width:150px;">'
           +'<span style="display:inline-block;width:5px;height:46px;border-radius:3px;background:'+col+';flex-shrink:0;"></span>'
           +'<div>'
-            +'<div style="font-size:13px;font-weight:900;color:'+col+';">'+(tl2[f.type_doc]||f.type_doc)+'</div>'
+            +'<div style="font-size:13px;font-weight:900;color:'+col+';">'+(tl2[f.type_doc]||fe(f.type_doc))+'</div>'
             +'<div style="font-family:monospace;font-size:12px;color:var(--muted);margin-top:2px;">'+fe(f.numero||'')+'</div>'
           +'</div>'
         +'</div>'
         // Montant + statut
         +'<div>'
           +(isFacture
-            ?'<div style="font-size:19px;font-weight:900;color:var(--primary);">'+mny2(f.montant_total)+'</div>'
+            ?'<div style="font-size:19px;font-weight:900;color:'+(isAnn?'#9e9e9e;text-decoration:line-through':'var(--primary)')+';">'+mny2(f.montant_total)+'</div>'
              +'<div style="font-size:12px;font-weight:800;color:'+(sc2[f.statut_paiement]||'#777')+';margin-top:2px;">'+(sl2[f.statut_paiement]||'')+'</div>'
-            :'<div style="font-size:16px;font-weight:700;color:var(--muted);">'+mny2(f.montant_total)+'</div>')
+             +(f.date_echeance&&f.statut_paiement!=='paye'&&!isAnn
+               ?'<div style="font-size:12px;font-weight:800;margin-top:2px;color:'+(f.date_echeance<=todayISO()?'#c62828':'#1565c0')+';">'+(f.date_echeance<=todayISO()?'💶 À ENCAISSER — échéance ':'🗓️ Échéance ')+fe(String(f.date_echeance).split('-').reverse().join('/'))+'</div>'
+               :'')
+            :'<div style="font-size:16px;font-weight:700;color:'+(isAnn?'#9e9e9e;text-decoration:line-through':'var(--muted)')+';">'+mny2(f.montant_total)+'</div>'
+             +(isAnn?'<div style="font-size:12px;font-weight:800;color:#757575;margin-top:2px;">🚫 Annulé</div>':''))
         +'</div>'
         // Statut facture seulement
         +(isFacture
@@ -3298,8 +3453,12 @@ function renderHistorique(){
             +'<option value="en_attente"'+(f.statut_paiement==='en_attente'?' selected':'')+'>⏳ Attente</option>'
             +'<option value="paye"'+(f.statut_paiement==='paye'?' selected':'')+'>✅ Payé</option>'
             +'<option value="retard"'+(f.statut_paiement==='retard'?' selected':'')+'>🔴 Retard</option>'
+            +'<option value="annule"'+(isAnn?' selected':'')+'>🚫 Annulé</option>'
           +'</select>'
-          :'<div style="width:108px;"></div>')
+          :'<select onchange="histoSetStatut(\''+fid+'\',this.value)" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:10px;width:108px;">'
+            +'<option value="en_attente"'+(isAnn?'':' selected')+'>📄 Actif</option>'
+            +'<option value="annule"'+(isAnn?' selected':'')+'>🚫 Annulé</option>'
+          +'</select>')
         // Boutons action
         +'<div style="display:flex;gap:3px;">'
           +'<button onclick="histoReopen(\''+fid+'\')" style="padding:5px 7px;background:#1565c0;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;" title="Rouvrir et modifier">✏️</button>'
@@ -3311,10 +3470,17 @@ function renderHistorique(){
     });
     html+='</div>';
   });
+  var _due=(_histoData||[]).filter(function(f){return f.type_doc==='facture'&&f.date_echeance&&f.statut_paiement==='en_attente'&&f.date_echeance<=todayISO();});
+  if(_due.length){
+    var _dueTot=_due.reduce(function(s,f){return s+(+f.montant_total||0);},0);
+    html='<div style="padding:12px 18px;background:#fff3e0;border-left:5px solid #c62828;color:#7f1d1d;font-size:14px;font-weight:800;line-height:1.6;">💶 '+_due.length+' paiement'+(_due.length>1?'s':'')+' à encaisser ('+mny2(_dueTot)+') : '
+      +_due.map(function(f){return fe(f.client_nom||'')+' — '+fe(f.numero||'')+' ('+mny2(f.montant_total)+', échéance '+fe(String(f.date_echeance).split('-').reverse().join('/'))+')';}).join(' · ')
+      +'<br><span style="font-weight:600;font-size:12px;">Encaisse-les depuis Stripe (mandat SEPA du magasin), puis passe la facture en « Payé ».</span></div>'+html;
+  }
   list.innerHTML=html;
 }
 window.renderHistorique=renderHistorique;
-async function histoSetStatut(id,statut){var db=window.db;if(!db)return;try{await db.from('factures').update({statut_paiement:statut}).eq('id',id);var f=_histoData.find(function(x){return x.id===id;});if(f)f.statut_paiement=statut;renderHistorique();}catch(e){alert('Erreur: '+e.message);}}
+async function histoSetStatut(id,statut){var db=window.db;if(!db)return;try{var r=await db.from('factures').update({statut_paiement:statut}).eq('id',id).select('id');if(r.error)throw r.error;if(!r.data||!r.data.length)throw new Error('la base n’a pas enregistré le changement');var f=_histoData.find(function(x){return String(x.id)===String(id);});if(f)f.statut_paiement=statut;renderHistorique();if(typeof renderClientCards==='function')renderClientCards();}catch(e){alert('❌ Statut non enregistré : '+(e.message||e)+' — Recharge la page et réessaie.');renderHistorique();}}
 window.histoSetStatut=histoSetStatut;
 async function histoDelete(id){if(!confirm('Supprimer cette facture ?'))return;var db=window.db;if(!db)return;try{
   var deleted=_histoData.find(function(f){return String(f.id)===String(id);});
@@ -3405,15 +3571,16 @@ window.histoReopen = function(id){
     if(calc>0&&calc<=100)remisePctRestored=calc;
   }
   if(remise)remise.value=remisePctRestored;
+  if(mode==='mag'){var dl=document.getElementById('mag-delai');if(dl)dl.value=String(f.delai_jours>0?f.delai_jours:0);}
   // Recharger les lignes
   var lignes=f.lignes;
   if(typeof lignes==='string'){try{lignes=JSON.parse(lignes);}catch(e){lignes=[];}}
   if(Array.isArray(lignes)&&lignes.length){
     if(mode==='mag'){
-      magLines=lignes.map(function(l){return{ref:l.ref||'',ean:l.ean||'',nom:l.nom||'',couleur:l.couleur||'',taille:l.taille||'',grammage:l.grammage||'',qty:Number(l.qty)||1,qty_cmd:l.qty_cmd!=null?Number(l.qty_cmd):null,pu:Number(l.pu)||0,livre:Number(l.livre)||0,pe:'',desCab:'',puCab:0};});
+      magLines=lignes.map(function(l){return{ref:l.ref||'',ean:l.ean||'',nom:l.nom||'',couleur:l.couleur||'',taille:l.taille||'',grammage:l.grammage||'',qty:Number(l.qty)||1,qty_cmd:l.qty_cmd!=null?Number(l.qty_cmd):null,pu:Number(l.pu)||0,pvp:l.pvp,livre:Number(l.livre)||0,pe:'',desCab:'',puCab:0};});
       if(typeof renderMagLines==='function')renderMagLines();
     } else {
-      cabLines=lignes.map(function(l){return{ref:l.ref||'',pe:l.ref||'',desCab:l.nom||'',nom:l.nom||'',couleur:'',taille:'',grammage:'',qty:Number(l.qty)||1,pu:0,puCab:Number(l.pu)||0};});
+      cabLines=lignes.map(function(l){return{ref:l.ref||'',pe:l.ref||'',desCab:l.nom||'',nom:l.nom||'',couleur:'',taille:'',grammage:'',qty:Number(l.qty)||1,pu:0,puCab:Number(l.pu)||0,pvp:l.pvp};});
       if(typeof renderCabLines==='function')renderCabLines();
     }
   }
@@ -4356,7 +4523,7 @@ function factuClear(mode){
   // Réinitialiser le numéro et auto-remplir le suivant
   const numEl=document.getElementById(mode+'-inv-num');
   if(numEl) numEl.value='';
-  if(mode==='mag'){ const ps=document.getElementById('mag-partie'); if(ps) ps.value=''; }
+  if(mode==='mag'){ const ps=document.getElementById('mag-partie'); if(ps) ps.value=''; const dl0=document.getElementById('mag-delai'); if(dl0) dl0.value='0'; }
   autoFillInvNum(mode);
 }
 
@@ -4405,6 +4572,39 @@ function buildClientDropdowns(){
 window.buildClientDropdowns=buildClientDropdowns;
 
 // ── RENDU LIGNES MAGASIN ──────────────────────────────────────────────
+// PVP (prix de vente public conseillé) d'une ligne : celui saisi à la main, sinon celui du catalogue.
+// Purement indicatif : il n'entre jamais dans les montants ni dans les totaux.
+function flLinePvp(l){
+  if(!l) return 0;
+  if(l.pvp!==undefined&&l.pvp!==null) return Math.max(0,Number(String(l.pvp).replace(',','.'))||0);
+  var p=flV35GetProductFromLine(l);
+  if(!p&&l.pe&&typeof CABESTO_PRODUCTS!=='undefined'){
+    var pe=String(l.pe).toUpperCase(), c=CABESTO_PRODUCTS.find(function(x){return x.pe.toUpperCase()===pe;});
+    if(c) p=CATALOGUE.find(function(x){return x.ref===c.ref;});
+  }
+  return p&&Number(p.pvc)>0?Number(p.pvc):0;
+}
+function flDelaiJours(){ var e=document.getElementById('mag-delai'); var n=e?parseInt(e.value,10):0; return n>0?n:0; }
+function flEcheanceISO(dateISO,jours){ if(!dateISO||!jours) return ''; var d=new Date(dateISO+'T12:00:00'); if(isNaN(d.getTime())) return ''; d.setDate(d.getDate()+jours); return d.toISOString().slice(0,10); }
+function flReglementRows(dateISO,isInvoice){
+  var j=isInvoice?flDelaiJours():0;
+  if(!j) return '<tr><td>Règlement :</td><td>Virement bancaire</td></tr>';
+  var sem=j/7;
+  return '<tr><td>Règlement :</td><td>Prélèvement SEPA à '+sem+' semaine'+(sem>1?'s':'')+'</td></tr>'
+    +'<tr><td>Échéance :</td><td><strong>'+dfr(flEcheanceISO(dateISO,j))+'</strong></td></tr>';
+}
+function flPvpTxt(l){ var v=flLinePvp(l); return v>0?mny(v):'—'; }
+function flPvpInput(arr,i){
+  var l=(arr==='mag'?magLines:cabLines)[i];
+  if(l.pvp===undefined||l.pvp===null) l.pvp=flLinePvp(l)||'';
+  var v=flLinePvp(l), prev=arr==='mag'?'magUpdatePreview(_magPreviewType||\'invoice\')':'cabUpdatePreview(_cabPreviewType||\'invoice\')';
+  return '<td class="r" style="padding:3px 2px;overflow:hidden;"><input type="number" value="'+(v>0?v.toFixed(2):'')+'" min="0" step="0.01" placeholder="—"'
+    +' title="Prix de vente public conseillé : imprimé sur la facture, jamais compté dans le total"'
+    +' style="width:100%;text-align:center;font-weight:700;font-size:13px;padding:4px 2px;box-sizing:border-box;color:#2e7d32;background:#f1f8e9;"'
+    +' oninput="'+(arr==='mag'?'magLines':'cabLines')+'['+i+'].pvp=this.value===\'\'?\'\':Math.max(0,parseFloat(this.value.replace(\',\',\'.\'))||0);'+prev+'"/></td>';
+}
+var FL_PVP_NOTE='<div class="pvp-note">PVP : prix de vente public conseillé (TTC), donné à titre indicatif — non compris dans le total de la facture.</div>';
+
 function renderMagLines(){
   const box=document.getElementById('mag-lines');
   if(!box) return;
@@ -4415,7 +4615,7 @@ function renderMagLines(){
     return;
   }
   if(!document.getElementById('_mcss')){var _s=document.createElement('style');_s.id='_mcss';_s.textContent='.mcr{position:relative;user-select:none}.mcr-h{position:absolute;right:-2px;top:0;bottom:0;width:5px;cursor:col-resize;z-index:2}.mcr-h:hover,.mcr-h.dragging{background:rgba(100,149,237,.7);border-radius:2px}';document.head.appendChild(_s);}
-  const _cw=k=>(_magColWidths[k]||{ref:108,couleur:82,taille:54,grammage:50,qty_cmd:54,qty:44,livre:50,restant:58,pu:60,montant:68}[k]);
+  const _cw=k=>(_magColWidths[k]||{ref:108,couleur:82,taille:54,grammage:50,qty_cmd:58,qty:58,livre:56,restant:58,pu:78,pvp:78,montant:68}[k]);
   const _cs=k=>{const v=_cw(k);return v?`width:${v}px`:'';};
   box.innerHTML=`<div style="margin-bottom:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
     <span style="font-size:11px;color:#888;font-weight:700;">Colonnes&nbsp;:</span>
@@ -4428,8 +4628,9 @@ function renderMagLines(){
     <button onclick="magToggleRestant()" title="${_magShowRestant?'Masquer':'Afficher'} la colonne Restant"
       style="padding:4px 11px;background:${_magShowRestant?'#c62828':'#444'};color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;">
       ${_magShowRestant?'✖':'+'}&nbsp;Restant</button>
+    <span style="font-size:11px;color:#2e7d32;font-weight:700;">🟩 PVP = prix de vente public conseillé : modifiable, imprimé sur la facture, jamais ajouté au total</span>
   </div>
-  <div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" id="mft" style="width:100%;min-width:700px;table-layout:fixed;">
+  <div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" id="mft" style="width:100%;min-width:800px;table-layout:fixed;">
     <colgroup>
       <col style="width:22px">
       <col id="mc-ref" style="${_cs('ref')}">
@@ -4442,6 +4643,7 @@ function renderMagLines(){
       ${_magShowLivre?`<col id="mc-livre" style="${_cs('livre')}">` : ''}
       ${_magShowRestant?`<col id="mc-restant" style="${_cs('restant')}">` : ''}
       <col id="mc-pu" style="${_cs('pu')}">
+      <col id="mc-pvp" style="${_cs('pvp')}">
       <col id="mc-montant" style="${_cs('montant')}">
       <col style="width:24px">
     </colgroup>
@@ -4457,6 +4659,7 @@ function renderMagLines(){
       ${_magShowLivre?`<th class="mcr r" style="font-size:10px;font-weight:800;">Livré<span class="mcr-h" onmousedown="magCRS(event,'livre')"></span></th>`:''}
       ${_magShowRestant?`<th class="mcr r" style="font-size:10px;font-weight:800;">Restant<span class="mcr-h" onmousedown="magCRS(event,'restant')"></span></th>`:''}
       <th class="mcr r" style="font-size:10px;">PU HT&nbsp;€<span class="mcr-h" onmousedown="magCRS(event,'pu')"></span></th>
+      <th class="mcr r" style="font-size:10px;color:#2e7d32;" title="Prix de vente public conseillé (jamais compté dans le total)">PVP&nbsp;€<span class="mcr-h" onmousedown="magCRS(event,'pvp')"></span></th>
       <th class="mcr r" style="font-size:10px;">Montant&nbsp;€<span class="mcr-h" onmousedown="magCRS(event,'montant')"></span></th>
       <th></th>
     </tr></thead><tbody>
@@ -4489,6 +4692,7 @@ function renderMagLines(){
         <td class="r" style="padding:3px 2px;overflow:hidden;"><input type="number" value="${l.pu.toFixed(2)}" min="0" step="0.01"
           style="width:100%;text-align:center;font-weight:800;font-size:13px;padding:4px 2px;box-sizing:border-box;"
           oninput="magLines[${i}].pu=Math.max(0,parseFloat(this.value.replace(',','.'))||0);factuRenderTotals('mag')"/></td>
+        ${flPvpInput('mag',i)}
         <td class="r bold" id="mmt-${i}" style="font-size:12px;padding:3px 4px;white-space:nowrap;">${mny(l.qty*l.pu)}</td>
         <td style="padding:2px 2px;"><button onclick="magLines.splice(${i},1);renderMagLines()" class="btn-del" style="font-size:13px;">✕</button></td>
       </tr>`;
@@ -4589,15 +4793,17 @@ function renderCabLines(){
     return;
   }
   if(!document.getElementById('_mcss')){var _s=document.createElement('style');_s.id='_mcss';_s.textContent='.mcr{position:relative;user-select:none}.mcr-h{position:absolute;right:-2px;top:0;bottom:0;width:5px;cursor:col-resize;z-index:2}.mcr-h:hover,.mcr-h.dragging{background:rgba(100,149,237,.7);border-radius:2px}';document.head.appendChild(_s);}
-  const _ccw=k=>(_cabColWidths[k]||{pe:70,nom:220,qty:44,pu:70,montant:80}[k]);
+  const _ccw=k=>(_cabColWidths[k]||{pe:70,nom:220,qty:58,pu:78,pvp:78,montant:80}[k]);
   const _ccs=k=>{const v=_ccw(k);return v?`width:${v}px`:'';};
-  box.innerHTML=`<div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:520px;table-layout:fixed;">
+  box.innerHTML=`<div style="margin-bottom:6px;font-size:11px;color:#2e7d32;font-weight:700;">🟩 PVP = prix de vente public conseillé : modifiable, imprimé sur la facture, jamais ajouté au total</div>
+    <div style="width:100%;overflow-x:auto;padding-bottom:4px;"><table class="factu-table" style="width:100%;min-width:620px;table-layout:fixed;">
     <colgroup>
       <col style="width:22px">
       <col id="cc-pe" style="${_ccs('pe')}">
       <col id="cc-nom">
       <col id="cc-qty" style="${_ccs('qty')}">
       <col id="cc-pu" style="${_ccs('pu')}">
+      <col id="cc-pvp" style="${_ccs('pvp')}">
       <col id="cc-montant" style="${_ccs('montant')}">
       <col style="width:24px">
     </colgroup>
@@ -4607,6 +4813,7 @@ function renderCabLines(){
       <th class="mcr" style="font-size:11px;font-weight:800;">Désignation Cabesto<span class="mcr-h" onmousedown="cabCRS(event,'nom')"></span></th>
       <th class="mcr r" style="font-size:10px;">Qté<span class="mcr-h" onmousedown="cabCRS(event,'qty')"></span></th>
       <th class="mcr r" style="font-size:10px;">PU HT&nbsp;€<span class="mcr-h" onmousedown="cabCRS(event,'pu')"></span></th>
+      <th class="mcr r" style="font-size:10px;color:#2e7d32;" title="Prix de vente public conseillé (jamais compté dans le total)">PVP&nbsp;€<span class="mcr-h" onmousedown="cabCRS(event,'pvp')"></span></th>
       <th class="mcr r" style="font-size:10px;">Montant&nbsp;€<span class="mcr-h" onmousedown="cabCRS(event,'montant')"></span></th>
       <th></th>
     </tr></thead><tbody>
@@ -4625,6 +4832,7 @@ function renderCabLines(){
       <td style="padding:3px 2px;overflow:hidden;" class="r"><input type="number" value="${l.puCab.toFixed(2)}" min="0" step="0.01"
         style="width:100%;text-align:center;font-weight:800;font-size:13px;padding:4px 1px;box-sizing:border-box;"
         oninput="cabLines[${i}].puCab=Math.max(0,parseFloat(this.value.replace(',','.'))||0);factuRenderTotals('cab')"/></td>
+      ${flPvpInput('cab',i)}
       <td class="r bold" id="cmt-${i}" style="font-size:12px;padding:3px 4px;overflow:hidden;">${mny(l.qty*l.puCab)}</td>
       <td style="padding:2px;"><button onclick="cabLines.splice(${i},1);renderCabLines()" class="btn-del" style="font-size:13px;">✕</button></td>
     </tr>`).join('')}
@@ -4675,6 +4883,20 @@ function factuRenderTotals(mode){
 }
 
 // ── CSS IMPRESSION ────────────────────────────────────────────────────
+// Impression « bleu nuit » (cartouche noire vide) : chaque noir/gris du document (texte, bordures, fonds)
+// devient un bleu nuit de même intensité ; rouge, vert et bleu ne bougent pas. Seule l'impression l'utilise.
+function flDocBleuNuit(html){
+  var navy=function(m,h){
+    if(h.length===3) h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    var r=parseInt(h.slice(0,2),16), g=parseInt(h.slice(2,4),16), b=parseInt(h.slice(4,6),16);
+    if(r!==g||g!==b||r===255) return m;
+    // Bleu pur (rouge et vert à 0) : l'imprimante le fabrique avec ses cartouches cyan + magenta, pas avec la noire.
+    return r<40?'#000040':r<80?'#000060':r<120?'#101080':r<170?'#3b3ba0':r<200?'#7a7ac4':r<230?'#b9b9e0':'#ececf8';
+  };
+  var teinte=function(s){ return s.replace(/#([0-9a-f]{6}|[0-9a-f]{3})\b/gi,navy).replace(/\bblack\b/gi,'#0b1b3f'); };
+  return String(html).replace(/<style>[\s\S]*?<\/style>/gi,teinte).replace(/style="[^"]*"/gi,teinte);
+}
+
 function printCSS(){
   return `<style>
     @page{size:A4;margin:20mm}
@@ -4690,9 +4912,10 @@ function printCSS(){
     .party{flex:1;border:1px solid #000;padding:8px;font-size:10px}
     .party h3{margin:0 0 5px;font-size:10px;background:#f0f0f0;color:#000;padding:2px 6px;font-weight:700;display:inline-block;border:1px solid #ccc}
     table.lg{width:100%;border-collapse:collapse;margin-top:6px}
-    table.lg th{background:#fff;color:#000;border:1px solid #000;padding:5px 6px;font-size:10px;font-weight:700;text-align:left;white-space:nowrap}
+    table.lg th{background:#fff;color:#000;border:1px solid #000;padding:5px 6px;font-size:10px;font-weight:700;text-align:left;white-space:normal}
     table.lg th.r,table.lg td.r{text-align:right;white-space:nowrap}
-    table.lg td{border:1px solid #000;padding:4px 6px;font-size:10px;vertical-align:middle;white-space:nowrap;color:#000}
+    table.lg td{border:1px solid #000;padding:4px 6px;font-size:10px;vertical-align:middle;white-space:normal;color:#000}
+    table.lg td.mono{white-space:nowrap}
     table.lg tr:nth-child(even){background:#fafafa}
     .tot{margin-left:auto;width:260px;margin-top:8px;border-collapse:collapse}
     .tot td{padding:5px 10px;border:1px solid #000;font-size:11px;color:#000}
@@ -4702,6 +4925,7 @@ function printCSS(){
     .refs h3{color:#000;margin:0 0 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em}
     .refs table{font-size:10px;width:100%}.refs td{padding:2px 6px}.refs td:first-child{font-weight:700;width:170px}
     .legal{margin-top:14px;font-size:9px;text-align:center;color:#000;border-top:1px solid #000;padding-top:6px}
+    .pvp-note{margin-top:8px;font-size:9px;font-style:italic;color:#000}
   </style>`;
 }
 
@@ -4717,12 +4941,38 @@ async function archiveFacture(opts){
   var db=window.db;if(!db){var tn=document.createElement('div');tn.textContent='❌ Base de données non connectée — réessayez dans 2 secondes';tn.style.cssText='position:fixed;bottom:20px;right:20px;background:#c62828;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999';document.body.appendChild(tn);setTimeout(function(){tn.remove();},5000);return;}
   try{
     var row={numero:opts.num||'',type_doc:opts.typeDoc||'facture',type_client:opts.typeClient||'magasin',client_nom:opts.clientNom||'',client_email:opts.clientEmail||'',client_adresse:opts.clientAdresse||'',date_facture:opts.date||todayISO(),ref_commande:opts.refCmd||'',montant_ht:opts.ht||0,frais_port:opts.port||0,montant_total:opts.total||0,lignes:JSON.stringify(opts.lignes||[])};
+    // Un seul document par numéro et par type : s'il existe déjà, on le met à jour au lieu d'en créer un doublon.
+    if(!opts.invoiceId&&row.numero){
+      var ex=await db.from('factures').select('id,client_nom').eq('numero',row.numero).eq('type_doc',row.type_doc).limit(5);
+      if(ex.error)throw ex.error;
+      if(ex.data&&ex.data.length){
+        var norm=function(s){return String(s||'').trim().toLowerCase();};
+        var same=ex.data.find(function(x){return norm(x.client_nom)===norm(row.client_nom);});
+        if(!same){
+          var tw=document.createElement('div');
+          tw.textContent='⚠️ Le numéro '+row.numero+' est déjà utilisé pour '+(ex.data[0].client_nom||'un autre client')+'. Change le numéro avant d’enregistrer : rien n’a été enregistré.';
+          tw.style.cssText='position:fixed;bottom:20px;right:20px;background:#c62828;color:#fff;padding:14px 20px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999;max-width:380px;line-height:1.5';
+          document.body.appendChild(tw);setTimeout(function(){tw.remove();},9000);
+          return null;
+        }
+        opts.invoiceId=same.id;
+      }
+    }
     var r;
-    if(opts.invoiceId){
-      r=await db.from('factures').update(row).eq('id',opts.invoiceId).select();
-    }else{
-      row.statut_paiement='en_attente';
-      r=await db.from('factures').insert([row]).select();
+    var _ech=null;
+    if(opts.typeDoc==='facture'&&opts.delaiJours>0){_ech={delai_jours:opts.delaiJours,date_echeance:flEcheanceISO(row.date_facture,opts.delaiJours)};}
+    else if(opts.typeDoc==='facture'&&opts.invoiceId){_ech={delai_jours:null,date_echeance:null};}
+    async function _save(withEch){
+      var rw=withEch&&_ech?Object.assign({},row,_ech):row;
+      if(opts.invoiceId)return db.from('factures').update(rw).eq('id',opts.invoiceId).select();
+      var ins=Object.assign({statut_paiement:'en_attente'},rw);
+      return db.from('factures').insert([ins]).select();
+    }
+    r=await _save(true);
+    // Colonnes d'échéance pas encore créées dans la base : on enregistre quand même la facture, sans l'échéance.
+    if(r.error&&_ech&&/delai_jours|date_echeance/.test(String(r.error.message||''))){
+      r=await _save(false);
+      if(!r.error&&_ech.delai_jours){flShowOfflineToast('⚠️ Facture enregistrée, mais l’échéance n’a pas pu être gardée (la base doit être mise à jour).','#e65100');}
     }
     var _docLabel=opts.typeDoc==='bon_livraison'?'Bon de livraison':opts.typeDoc==='commande'?'Commande':'Facture';
     if(!r.error){console.log('Facture archivee:',opts.num);var t=document.createElement('div');t.textContent='✅ '+_docLabel+' '+opts.num+(opts.invoiceId?' mis à jour !':' enregistré(e) !');t.style.cssText='position:fixed;bottom:20px;right:20px;background:#2e7d32;color:#fff;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:700;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3)';document.body.appendChild(t);setTimeout(function(){t.remove();},4000);if(typeof renderHistorique==='function')renderHistorique();loadHistorique().then(function(){flAutoBackup();});return(r.data&&r.data[0])?r.data[0].id:null;}else{var te=document.createElement('div');te.textContent='❌ Erreur sauvegarde: '+JSON.stringify(r.error);te.style.cssText='position:fixed;bottom:20px;right:20px;background:#c62828;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999;max-width:320px';document.body.appendChild(te);setTimeout(function(){te.remove();},6000);console.error('Archive error:',r.error);}
@@ -4760,7 +5010,7 @@ function magBuildPreviewHtml(type){
       linesHtml=magLines.map(function(l){
         var bq=(_prvPartieActive&&(l.livre||0)>0)?(l.livre||0):Number(l.qty);
         var qtyDisp=_prvPartieActive&&(l.livre||0)>0?l.livre+' <span style="font-size:9px;color:#888;">/ '+l.qty+'</span>':String(l.qty);
-        return '<tr><td class="mono">'+fe(l.ref)+'</td><td>'+fe(l.nom)+'</td><td>'+(fe(l.couleur)||'—')+'</td><td>'+(fe(l.taille)||'—')+'</td><td>'+(fe(l.grammage)||'—')+'</td><td class="r">'+qtyDisp+'</td><td class="r">'+mny(l.pu)+'</td><td class="r"><strong>'+mny(bq*Number(l.pu))+'</strong></td></tr>';
+        return '<tr><td class="mono">'+fe(l.ref)+'</td><td>'+fe(l.nom)+'</td><td>'+(fe(l.couleur)||'—')+'</td><td>'+(fe(l.taille)||'—')+'</td><td>'+(fe(l.grammage)||'—')+'</td><td class="r">'+qtyDisp+'</td><td class="r">'+mny(l.pu)+'</td><td class="r">'+flPvpTxt(l)+'</td><td class="r"><strong>'+mny(bq*Number(l.pu))+'</strong></td></tr>';
       }).join('');
       linesHtml+='</tbody></table><table class="tot"><tbody>'
         +'<tr><td><strong>Total hors taxes</strong></td><td class="r"><strong>'+mny(ht)+'</strong></td></tr>'
@@ -4770,21 +5020,21 @@ function magBuildPreviewHtml(type){
         +'<tr class="grand"><td>Total net à payer</td><td class="r">'+mny(net)+'</td></tr>';
     }
   } else {
-    var _span=isDelivery?8:8;
+    var _span=isDelivery?8:9;
     linesHtml='<tr><td colspan="'+_span+'" style="text-align:center;color:#aaa;padding:18px;font-style:italic;font-size:10px;">— Importez une commande pour voir les lignes de la facture —</td></tr>';
   }
-  var thInvoice='<th>Réf. produit</th><th>Nom produit</th><th>Couleur</th><th>Taille</th><th>Grammage</th><th class="r">Qté</th><th class="r">PU HT&nbsp;(€)</th><th class="r">Montant HT&nbsp;(€)</th>';
+  var thInvoice='<th>Réf. produit</th><th>Nom produit</th><th>Couleur</th><th>Taille</th><th>Grammage</th><th class="r">Qté</th><th class="r">PU HT&nbsp;(€)</th><th class="r">PVP&nbsp;(€)</th><th class="r">Montant HT&nbsp;(€)</th>';
   var thDelivery='<th>Réf. produit</th><th>Nom produit</th><th>Couleur</th><th>Taille</th><th>Grammage</th><th class="r">Qté commandée</th><th class="r">Qté livrée</th><th class="r">Qté restante</th>';
   return '<!doctype html><html><head><meta charset="utf-8">'+printCSS()+'</head><body>'
     +'<div class="header"><div class="from"><h1>'+fe(FL.name)+'</h1><p>'+fe(FL.address)+'</p><p>Tél&nbsp;: '+fe(FL.phone)+' — Mobile&nbsp;: '+fe(FL.mobile)+'</p><p>'+fe(FL.email)+'</p><p>SIRET&nbsp;: '+fe(FL.siret)+'</p></div>'
     +'<div class="docinfo"><h2>'+(isDelivery?'BON DE LIVRAISON':isCommande?'COMMANDE':'FACTURE')+'</h2>'
     +'<table><tr><td>N° :</td><td><strong>'+fe(num)+'</strong></td></tr><tr><td>Date :</td><td>'+dfr(date)+'</td></tr>'
     +(oref?'<tr><td>Réf. commande :</td><td>'+fe(oref)+'</td></tr>':'')
-    +'<tr><td>Règlement :</td><td>Virement bancaire</td></tr></table></div></div>'
+    +flReglementRows(date,!isDelivery&&!isCommande)+'</table></div></div>'
     +'<div class="parties"><div class="party"><h3>Expéditeur</h3><br><strong>'+fe(FL.fullName)+'</strong><br>'+nl2(FL.address)+'<br>Tél&nbsp;: '+fe(FL.phone)+'<br>'+fe(FL.email)+'<br>SIRET&nbsp;: '+fe(FL.siret)+'</div>'
     +'<div class="party"><h3>Destinataire</h3><br>'+clientHtml+'</div></div>'
     +'<table class="lg"><thead><tr>'+(isDelivery?thDelivery:thInvoice)+'</tr></thead><tbody>'+linesHtml+'</tbody></table>'
-    +(magLines.length&&!isDelivery?'':'')
+    +(isDelivery?'':FL_PVP_NOTE)
     +'<div class="legal">'+fe(FL.vatNote)+'</div></body></html>';
 }
 function magUpdatePreview(type){
@@ -4828,7 +5078,7 @@ function cabBuildPreviewHtml(type){
       }).join('');
     } else {
       linesHtml=cabLines.map(function(l){
-        return '<tr><td class="mono">'+fe(l.pe||'—')+'</td><td>'+fe(l.desCab)+'</td><td class="r">'+l.qty+'</td><td class="r">'+mny(l.puCab)+'</td><td class="r"><strong>'+mny(Number(l.qty)*Number(l.puCab))+'</strong></td></tr>';
+        return '<tr><td class="mono">'+fe(l.pe||'—')+'</td><td>'+fe(l.desCab)+'</td><td class="r">'+l.qty+'</td><td class="r">'+mny(l.puCab)+'</td><td class="r">'+flPvpTxt(l)+'</td><td class="r"><strong>'+mny(Number(l.qty)*Number(l.puCab))+'</strong></td></tr>';
       }).join('');
       linesHtml+='</tbody></table><table class="tot"><tbody>'
         +'<tr><td><strong>Total hors taxes</strong></td><td class="r"><strong>'+mny(ht)+'</strong></td></tr>'
@@ -4838,9 +5088,9 @@ function cabBuildPreviewHtml(type){
         +'<tr class="grand"><td>Total net à payer</td><td class="r">'+mny(net)+'</td></tr>';
     }
   } else {
-    linesHtml='<tr><td colspan="'+(isDelivery?4:5)+'" style="text-align:center;color:#aaa;padding:18px;font-style:italic;font-size:10px;">— Importez une commande Cabesto pour voir les lignes —</td></tr>';
+    linesHtml='<tr><td colspan="'+(isDelivery?4:6)+'" style="text-align:center;color:#aaa;padding:18px;font-style:italic;font-size:10px;">— Importez une commande Cabesto pour voir les lignes —</td></tr>';
   }
-  var thInvoice='<th>Réf. produit</th><th>Désignation</th><th class="r">Qté</th><th class="r">PU HT&nbsp;(€)</th><th class="r">Montant HT&nbsp;(€)</th>';
+  var thInvoice='<th>Réf. produit</th><th>Désignation</th><th class="r">Qté</th><th class="r">PU HT&nbsp;(€)</th><th class="r">PVP&nbsp;(€)</th><th class="r">Montant HT&nbsp;(€)</th>';
   var thDelivery='<th>Réf. produit</th><th>Désignation</th><th class="r">Qté commandée</th><th class="r">Qté livrée</th>';
   var refsHtml='<div class="refs"><h3>Références à rappeler pour la livraison</h3>'
     +'<table><tr><td>Fournisseur :</td><td>'+fe(supp)+'</td></tr>'
@@ -4855,6 +5105,7 @@ function cabBuildPreviewHtml(type){
     +'<div class="parties"><div class="party"><h3>Expéditeur</h3><br><strong>'+fe(FL.fullName)+'</strong><br>'+nl2(FL.address)+'<br>Tél&nbsp;: '+fe(FL.phone)+'<br>'+fe(FL.email)+'<br>SIRET&nbsp;: '+fe(FL.siret)+'</div>'
     +'<div class="party"><h3>Destinataire</h3><br>'+clientHtml+'</div></div>'
     +'<table class="lg"><thead><tr>'+(isDelivery?thDelivery:thInvoice)+'</tr></thead><tbody>'+linesHtml+'</tbody></table>'
+    +(isDelivery?'':FL_PVP_NOTE)
     +refsHtml
     +'<div class="legal">'+fe(FL.vatNote)+'</div></body></html>';
 }
@@ -4901,6 +5152,7 @@ function magGenDoc(type){
     <td>${fe(l.grammage)||'—'}</td>
     <td class="r">${qtyLabel}</td>
     <td class="r">${mny(l.pu)}</td>
+    <td class="r">${flPvpTxt(l)}</td>
     <td class="r"><strong>${mny(bq*Number(l.pu))}</strong></td>
   </tr>`;}).join('');
 
@@ -4927,7 +5179,7 @@ const totRows=`
       <table><tr><td>N° :</td><td><strong>${fe(num)}</strong></td></tr>
       <tr><td>Date :</td><td>${dfr(date)}</td></tr>
       ${oref?`<tr><td>Réf. commande :</td><td>${fe(oref)}</td></tr>`:''}
-      <tr><td>Règlement :</td><td>Virement bancaire</td></tr></table></div>
+      ${flReglementRows(date,type!=='delivery'&&type!=='commande')}</table></div>
   </div>`;
 
   const parties=`<div class="parties">
@@ -4954,9 +5206,10 @@ const totRows=`
     ${header}${parties}
     <table class="lg"><thead><tr><th>Réf. produit</th><th>Nom produit</th><th>Couleur</th>
       <th>Taille</th><th>Grammage</th>
-      <th class="r">Qté</th><th class="r">PU HT&nbsp;(€)</th><th class="r">Montant HT&nbsp;(€)</th></tr></thead>
+      <th class="r">Qté</th><th class="r">PU HT&nbsp;(€)</th><th class="r">PVP&nbsp;(€)</th><th class="r">Montant HT&nbsp;(€)</th></tr></thead>
       <tbody>${rows}</tbody></table>
     <table class="tot"><tbody>${totRows}</tbody></table>
+    ${FL_PVP_NOTE}
     <div class="legal">${fe(FL.vatNote)}</div>
     <script>window.onload=function(){window.print();};<\/script></body></html>`;
 }
@@ -4964,7 +5217,7 @@ const totRows=`
 
 // ── V35 EXPORT PREMIUM + SYNCHRO COMMANDES/CODES-BARRES ───────────────
 function flV35SanitizeFilename(v){return String(v||'document').replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'')||'document';}
-function flV35RemovePrintScript(html){return String(html||'').replace(new RegExp('<script>window.onload=function\\(\\)\\{window.print\\(\\);\\};<\\/script>','g'),'').replace(/@page\{size:A4;margin:20mm\}/g,'').replace(/body\{font-family:Arial,sans-serif;color:#111;font-size:11px;margin:0\}/g,'body{font-family:Arial,sans-serif;color:#111;font-size:11px;margin:18px;background:#fff}');}
+function flV35RemovePrintScript(html){return String(html||'').replace(new RegExp('<script>window.onload=function\\(\\)\\{window.print\\(\\);\\};<\\/script>','g'),'').replace(/@page\{size:A4;margin:20mm\}/g,'').replace(/body\{font-family:Arial,sans-serif;color:(#[0-9a-f]+);font-size:11px;margin:0\}/gi,'body{font-family:Arial,sans-serif;color:$1;font-size:11px;margin:18px;background:#fff}');}
 function flV35DownloadBlob(content, filename, type){const blob=new Blob([content],{type:type||'application/octet-stream'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);}
 function flV35DownloadDesignedDoc(html, filename){
   // Export premium : on télécharge le même HTML que l'aperçu/impression.
@@ -5015,7 +5268,7 @@ function flV40DownloadPack(html, baseName){
 function flV35GetProductFromLine(l){if(!l)return null;if(l.ref&&typeof CATALOGUE!=='undefined'){const p=CATALOGUE.find(x=>x.ref===l.ref);if(p)return p;}if(l.ean&&typeof CATALOGUE!=='undefined'){const p=CATALOGUE.find(x=>String(x.ean||'')===String(l.ean||''));if(p)return p;}return null;}
 function flV35SyncFactuToCommandes(mode, lines, existingResults){const results=[];(existingResults||[]).forEach(r=>{if(r&&r.matched&&r.product)results.push(r);});(lines||[]).forEach(l=>{const p=flV35GetProductFromLine(l);if(!p)return;if(results.some(r=>r.product&&r.product.ref===p.ref))return;results.push({matched:true,product:p,qty:parseInt(l.qty)||1,line:(mode==='cab'?(l.pe||l.ref||'')+' '+(l.desCab||l.nom||''):(l.ref||'')+' '+(l.nom||''))});});if(results.length){orderResults=results;try{renderOrderResults();}catch(e){console.warn('V35 render commandes',e);}const tab=document.getElementById('tab-commande');if(tab){tab.classList.add('fl-v35-pulse');setTimeout(()=>tab.classList.remove('fl-v35-pulse'),3500);}const st=document.getElementById((mode==='mag'?'mag':'cab')+'-import-status');if(st)st.textContent+=' — codes-barres préparés dans Commandes';}}
 
-function magPrint(t){const h=magGenDoc(t);if(!h)return;const w=window.open('','_blank');w.document.open();w.document.write(h);w.document.close();_magArchive(t);}
+function magPrint(t,bleu){let h=magGenDoc(t);if(!h)return;if(bleu)h=flDocBleuNuit(h);const w=window.open('','_blank');w.document.open();w.document.write(h);w.document.close();_magArchive(t);}
 function _magArchive(t,opts){
   try{
     var c=magClient||{name:(document.getElementById('mag-client-sel')||{options:[{text:''}]}).options[(document.getElementById('mag-client-sel')||{selectedIndex:0}).selectedIndex]?.text||'Magasin non sélectionné',email:'',address:''};
@@ -5032,7 +5285,7 @@ function _magArchive(t,opts){
     var remiseMt=ht*remisePct/100;
     var total=ht-remiseMt+port;
     if(opts&&opts.autoDownload){var _dlh=magGenDoc(t);if(_dlh){var _typNm=t==='delivery'?'BL':t==='commande'?'Commande':'Facture';flShowFormatPicker({html:_dlh,base:todayISO()+'_'+flV35SanitizeFilename(num)+'_'+_typNm,mode:'mag',docType:t});}}
-    archiveFacture({invoiceId:useId,num:num,typeDoc:typeDoc,typeClient:'magasin',clientNom:c.name||'',clientEmail:c.email||'',clientAdresse:(c.address||'').replace(/\n/g,' '),date:date,refCmd:oref,ht:ht,port:port,remisePct:remisePct,remiseMt:remiseMt,total:total,lignes:magLines.map(function(l){return{ref:l.ref,ean:l.ean||'',nom:l.nom,couleur:l.couleur,taille:l.taille,grammage:l.grammage,qty:l.qty,qty_cmd:l.qty_cmd!=null?l.qty_cmd:null,pu:l.pu,livre:l.livre||0};})})
+    archiveFacture({delaiJours:(t==='invoice'?flDelaiJours():0),invoiceId:useId,num:num,typeDoc:typeDoc,typeClient:'magasin',clientNom:c.name||'',clientEmail:c.email||'',clientAdresse:(c.address||'').replace(/\n/g,' '),date:date,refCmd:oref,ht:ht,port:port,remisePct:remisePct,remiseMt:remiseMt,total:total,lignes:magLines.map(function(l){return{ref:l.ref,ean:l.ean||'',nom:l.nom,couleur:l.couleur,taille:l.taille,grammage:l.grammage,qty:l.qty,qty_cmd:l.qty_cmd!=null?l.qty_cmd:null,pu:l.pu,pvp:flLinePvp(l),livre:l.livre||0};})})
     .then(function(newId){
       if(newId){magCurrentInvoiceId=newId;_magCurrentNum=num;_magCurrentType=typeDoc;}
       // Nouvelle facture (pas BL/commande de la même facture) : on avance le numéro pour la prochaine
@@ -5070,6 +5323,7 @@ function cabGenDoc(type){
     <td><strong>${fe(l.desCab)}</strong></td>
     <td class="r">${l.qty}</td>
     <td class="r">${mny(l.puCab)}</td>
+    <td class="r">${flPvpTxt(l)}</td>
     <td class="r"><strong>${mny(Number(l.qty)*Number(l.puCab))}</strong></td>
   </tr>`).join('');
 
@@ -5126,14 +5380,25 @@ const totRows=`
   return `<!doctype html><html><head><meta charset="utf-8"><title>Facture Cabesto ${fe(num)}</title>${printCSS()}</head><body>
     ${header}${parties}
     <table class="lg"><thead><tr><th>Réf. produit</th><th>Désignation</th>
-      <th class="r">Qté</th><th class="r">PU HT&nbsp;(€)</th><th class="r">Montant HT&nbsp;(€)</th></tr></thead>
+      <th class="r">Qté</th><th class="r">PU HT&nbsp;(€)</th><th class="r">PVP&nbsp;(€)</th><th class="r">Montant HT&nbsp;(€)</th></tr></thead>
       <tbody>${rows}</tbody></table>
     <table class="tot"><tbody>${totRows}</tbody></table>
+    ${FL_PVP_NOTE}
     ${refs}
     <div class="legal">${fe(FL.vatNote)}</div>
     <script>window.onload=function(){window.print();};<\/script></body></html>`;
 }
 
+
+// Repli : retrouve l'EAN dans la liste Cabesto (code PE, réf. ou désignation). Sert aux lignes
+// rechargées depuis l'historique (réf. = code PE) ou non reconnues par l'analyse de la commande.
+function flCabEanFromLine(l){
+  var cle=function(s){return String(s||'').toUpperCase().replace(/(\d)\s*(GRAMMES?|GRS?|G)\b/g,'$1G').replace(/[^A-Z0-9]/g,'');};
+  var pe=cle(l.pe), ref=cle(l.ref), des=cle(l.desCab||l.nom);
+  var p=CABESTO_PRODUCTS.find(function(x){var xp=cle(x.pe);return (pe&&xp===pe)||(ref&&(xp===ref||cle(x.ref)===ref));})
+    ||(des?CABESTO_PRODUCTS.find(function(x){return cle(x.des)===des;}):null);
+  return p?p.ean:'';
+}
 
 // ── EXPORT PACKING LISTE CABESTO (CSV séparateur ;) ───────────────────
 function cabExportPackingListe(){
@@ -5144,11 +5409,12 @@ function cabExportPackingListe(){
   // Packing list volontairement simplifiée : uniquement EAN + quantité envoyée.
   const rows=[['PACKING LISTE EAN13 — GAUTIER FISHING'],['CDE',cde,'Email récepteur',email],[],['EAN13','Quantité envoyée']];
   let hasWarning=false;
+  const sansEan=[];
   const lines=cabLines.map(function(l){
     const prod=flV35GetProductFromLine(l);
-    const ean=prod?(prod.ean||''):(l.ean||'');
+    const ean=(prod&&prod.ean)||l.ean||flCabEanFromLine(l);
     const qty=parseInt(l.qty)||0;
-    if(!ean)hasWarning=true;
+    if(!ean){hasWarning=true;sansEan.push('• '+(l.desCab||l.nom||l.ref||'produit sans nom')+' (x '+qty+')');}
     rows.push([ean||'EAN_MANQUANT','X '+qty]);
     return {ean:ean||'EAN_MANQUANT', qty:qty};
   });
@@ -5168,15 +5434,15 @@ function cabExportPackingListe(){
     '</tbody></table><div class="legal">Document de contrôle pour préparation magasin — uniquement EAN13 + quantités envoyées.</div></body></html>';
 
   flV35DownloadDesignedDoc(html,cde+'-'+ville+'-PACKING-LISTE-EAN13.html');
-  if(hasWarning) alert('⚠️ Certains produits n\'ont pas de code EAN13 dans le catalogue. Vérifiez le fichier généré.'); else alert('✅ CSV + tableau Excel de packing liste téléchargés.\n\n📧 À envoyer à : '+(email||'email non trouvé'));
+  if(hasWarning) alert('⚠️ Code EAN13 introuvable pour :\n'+sansEan.join('\n')+'\n\nDans le fichier, ces lignes affichent « EAN_MANQUANT ». Corrigez-les avant l\'envoi à Cabesto.'); else alert('✅ CSV + tableau Excel de packing liste téléchargés.\n\n📧 À envoyer à : '+(email||'email non trouvé'));
   const cdeDisplay=document.getElementById('cab-cde-display'), emailDisplay=document.getElementById('cab-recep-email-display'); if(emailDisplay) emailDisplay.textContent=email||'email non trouvé'; if(cdeDisplay&&cde!=='CDEXXXXX') cdeDisplay.textContent=cde;
 }
 
-function cabPrint(t){const h=cabGenDoc(t);if(!h)return;const w=window.open('','_blank');w.document.open();w.document.write(h);w.document.close();_cabArchive(t);}
+function cabPrint(t,bleu){let h=cabGenDoc(t);if(!h)return;if(bleu)h=flDocBleuNuit(h);const w=window.open('','_blank');w.document.open();w.document.write(h);w.document.close();_cabArchive(t);}
 function _cabArchive(t,opts){try{var c=cabClient;if(!c)return;var num=(document.getElementById('cab-inv-num')||{}).value||'';var typeDoc=t==='delivery'?'bon_livraison':t==='commande'?'commande':'facture';
   // Réutilise l'ID existant SEULEMENT si le numéro ET le type sont identiques à ce qui a été chargé (sinon on écrase le mauvais document)
   var useId=(num&&num===_cabCurrentNum&&typeDoc===_cabCurrentType)?cabCurrentInvoiceId:null;
-  var date=(document.getElementById('cab-inv-date')||{}).value||todayISO();var comf=(document.getElementById('cab-order-ref')||{}).value||'';var port=parseFloat((document.getElementById('cab-port')||{value:0}).value)||0;var remisePct=parseFloat((document.getElementById('cab-remise')||{value:0}).value)||0;var ht=cabLines.reduce(function(s,l){return s+Number(l.qty)*Number(l.puCab);},0);var remiseMt=ht*remisePct/100;var total=ht-remiseMt+port;if(opts&&opts.autoDownload){var _dlh=cabGenDoc(t);if(_dlh){var _typNm=t==='delivery'?'BL':t==='commande'?'Commande':'Facture';flShowFormatPicker({html:_dlh,base:todayISO()+'_'+flV35SanitizeFilename(num)+'_'+_typNm,mode:'cab',docType:t});}}archiveFacture({invoiceId:useId,num:num,typeDoc:typeDoc,typeClient:'cabesto',clientNom:c.name||'',clientEmail:c.email||'',clientAdresse:(c.address||'').replace(/\n/g,' '),date:date,refCmd:comf,ht:ht,port:port,remisePct:remisePct,remiseMt:remiseMt,total:total,lignes:cabLines.map(function(l){return{ref:l.pe||l.ref,nom:l.desCab||l.nom,qty:l.qty,pu:l.puCab};})})
+  var date=(document.getElementById('cab-inv-date')||{}).value||todayISO();var comf=(document.getElementById('cab-order-ref')||{}).value||'';var port=parseFloat((document.getElementById('cab-port')||{value:0}).value)||0;var remisePct=parseFloat((document.getElementById('cab-remise')||{value:0}).value)||0;var ht=cabLines.reduce(function(s,l){return s+Number(l.qty)*Number(l.puCab);},0);var remiseMt=ht*remisePct/100;var total=ht-remiseMt+port;if(opts&&opts.autoDownload){var _dlh=cabGenDoc(t);if(_dlh){var _typNm=t==='delivery'?'BL':t==='commande'?'Commande':'Facture';flShowFormatPicker({html:_dlh,base:todayISO()+'_'+flV35SanitizeFilename(num)+'_'+_typNm,mode:'cab',docType:t});}}archiveFacture({invoiceId:useId,num:num,typeDoc:typeDoc,typeClient:'cabesto',clientNom:c.name||'',clientEmail:c.email||'',clientAdresse:(c.address||'').replace(/\n/g,' '),date:date,refCmd:comf,ht:ht,port:port,remisePct:remisePct,remiseMt:remiseMt,total:total,lignes:cabLines.map(function(l){return{ref:l.pe||l.ref,nom:l.desCab||l.nom,qty:l.qty,pu:l.puCab,pvp:flLinePvp(l)};})})
   .then(function(newId){
     if(newId){cabCurrentInvoiceId=newId;_cabCurrentNum=num;_cabCurrentType=typeDoc;}
     if(t==='invoice')autoFillInvNum('cab');
@@ -5194,6 +5460,8 @@ window.magDownloadBoth = async function(){
   var base=todayISO()+'_'+flV35SanitizeFilename(num);
   var hInv=magGenDoc('invoice'); var hBL=magGenDoc('delivery');
   if(!hInv&&!hBL){alert('Remplissez la facture avant de télécharger.');return;}
+  if(hBL) _magArchive('delivery');
+  if(hInv) _magArchive('invoice');
   if(hInv) await flDownloadPDF(hInv, base+'_Facture.pdf');
   if(hBL){ await new Promise(function(r){setTimeout(r,600);}); await flDownloadPDF(hBL, base+'_BL.pdf'); }
 };
@@ -5203,6 +5471,8 @@ window.cabDownloadBoth = async function(){
   var base=todayISO()+'_Cabesto_'+flV35SanitizeFilename(num);
   var hInv=cabGenDoc('invoice'); var hBL=cabGenDoc('delivery');
   if(!hInv&&!hBL){alert('Remplissez la facture avant de télécharger.');return;}
+  if(hBL) _cabArchive('delivery');
+  if(hInv) _cabArchive('invoice');
   if(hInv) await flDownloadPDF(hInv, base+'_Facture.pdf');
   if(hBL){ await new Promise(function(r){setTimeout(r,600);}); await flDownloadPDF(hBL, base+'_BL.pdf'); }
 };
@@ -5231,60 +5501,97 @@ window.flFormatDownload = async function(fmt){
   else flV35DownloadBlob(ctx.html, ctx.base+'.html', 'text/html;charset=utf-8');
 };
 
+// Rendu dans une iframe isolée (scroll toujours à 0, indépendant de la page de l'app),
+// puis découpage A4 en évitant de couper une ligne de tableau.
 async function flDownloadPDF(html, filename){
-  if(typeof html2pdf === 'undefined'){ alert('❌ Librairie PDF non disponible. Utilisez 🖨️ Imprimer → Enregistrer en PDF.'); return; }
-  var bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  var bodyContent = bodyMatch ? bodyMatch[1] : html;
-  var styles = ''; var styleRe = /<style[^>]*>([\s\S]*?)<\/style>/gi; var sm;
-  while((sm = styleRe.exec(html)) !== null) styles += sm[1]+'\n';
-  styles = styles.replace(/window\.onload[^}]+\}/g,'').replace(/@page[^}]*\}/g,'');
-  // Le wrapper doit être dans le flux normal (position:static) ET visible par html2canvas.
-  // overflow:hidden sur un parent bloque le rendu pixel même si la hauteur est correcte.
-  // Solution : on l'ajoute directement au body en bas de page (hors écran visible), on génère
-  // le PDF, puis on le supprime. L'utilisateur ne voit rien car c'est en bas du DOM.
-  var wrapper = document.createElement('div');
-  wrapper.style.cssText = 'width:190mm;background:#fff;color:#111;font-family:Arial,sans-serif;font-size:11px;position:relative;';
-  var styleEl = document.createElement('style');
-  styleEl.textContent = styles + ' body,html{background:#fff!important;}';
-  wrapper.appendChild(styleEl);
-  var content = document.createElement('div');
-  content.innerHTML = bodyContent;
-  content.querySelectorAll('script').forEach(function(s){ s.remove(); });
-  // Convertir les images en base64 pour éviter les blocages CORS dans html2canvas
-  var imgs = Array.from(content.querySelectorAll('img[src]'));
-  await Promise.all(imgs.map(async function(img){
-    var src = img.getAttribute('src');
-    if(!src || src.startsWith('data:')) return;
-    try{
-      var resp = await fetch(src, {mode:'cors', cache:'force-cache'});
-      var blob = await resp.blob();
-      await new Promise(function(res){
-        var r = new FileReader();
-        r.onload = function(e){ img.src = e.target.result; res(); };
-        r.onerror = function(){ img.removeAttribute('src'); res(); };
-        r.readAsDataURL(blob);
-      });
-    }catch(e){ img.style.display='none'; }
-  }));
-  wrapper.appendChild(content);
-  var savedScrollY = window.scrollY;
-  document.body.appendChild(wrapper);
-  // Attendre que le navigateur calcule le layout
-  await new Promise(function(r){ requestAnimationFrame(function(){ requestAnimationFrame(r); }); });
+  var JsPDF = window.jspdf && window.jspdf.jsPDF;
+  if(typeof html2canvas === 'undefined' || !JsPDF){ alert('❌ Librairie PDF non disponible. Rechargez la page (Ctrl+Shift+R) ou utilisez 🖨️ Imprimer → Enregistrer en PDF.'); return; }
+  var MARGIN_MM = 8, CONTENT_W_MM = 210 - 2*MARGIN_MM, CONTENT_H_MM = 297 - 2*MARGIN_MM;
+  var CSS_W = Math.round(CONTENT_W_MM * 96 / 25.4);
+  var PX_PER_MM = CSS_W / CONTENT_W_MM;
+  var PAGE_CSS_H = Math.floor(CONTENT_H_MM * PX_PER_MM);
+  var SCALE = 2;
+
+  var cleaned = String(html).replace(/<script[\s\S]*?<\/script>/gi, '').replace(/@page[^{]*\{[^}]*\}/gi, '');
+
+  var frame = document.createElement('iframe');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:'+CSS_W+'px;height:10px;border:0;background:#fff;';
+  var badge = document.createElement('div');
+  badge.style.cssText = 'position:fixed;bottom:16px;right:16px;background:#1565c0;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:800;z-index:2147483647;box-shadow:0 4px 16px rgba(0,0,0,.4);';
+  badge.textContent = '⏳ Génération PDF en cours…';
+  document.body.appendChild(frame);
+  document.body.appendChild(badge);
+
   try{
-    await html2pdf().set({
-      margin:[8,8,8,8],
-      filename:filename,
-      image:{type:'jpeg',quality:0.92},
-      html2canvas:{scale:2,useCORS:true,allowTaint:false,logging:false,backgroundColor:'#ffffff'},
-      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
-    }).from(wrapper).save();
+    var doc = frame.contentDocument;
+    doc.open(); doc.write(cleaned); doc.close();
+    var fix = doc.createElement('style');
+    fix.textContent = 'html,body{margin:0!important;padding:0!important;background:#fff!important;width:'+CSS_W+'px!important;min-width:0!important;max-width:none!important;overflow:visible!important;}'
+      + '*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}';
+    (doc.head || doc.documentElement).appendChild(fix);
+
+    await Promise.all(Array.from(doc.images).map(async function(img){
+      var src = img.getAttribute('src') || '';
+      if(src && !src.startsWith('data:')){
+        try{
+          var abs = new URL(src, location.href);
+          if(abs.origin !== location.origin){
+            var blob = await (await fetch(abs.href, {mode:'cors'})).blob();
+            img.src = await new Promise(function(res, rej){ var r = new FileReader(); r.onload = function(){ res(r.result); }; r.onerror = rej; r.readAsDataURL(blob); });
+          }
+        }catch(e){ img.style.display = 'none'; return; }
+      }
+      if(!img.complete) await new Promise(function(r){ img.onload = img.onerror = r; });
+    }));
+    if(doc.fonts && doc.fonts.ready) await doc.fonts.ready;
+
+    var root = doc.documentElement;
+    var totalH = Math.ceil(Math.max(root.scrollHeight, doc.body ? doc.body.scrollHeight : 0));
+    frame.style.height = totalH + 'px';
+    await new Promise(function(r){ requestAnimationFrame(function(){ requestAnimationFrame(r); }); });
+
+    var breaks = [];
+    doc.querySelectorAll('tr, body > *, body > * > *, body > * > * > *').forEach(function(el){
+      if(el.closest('td,th')) return;
+      var b = el.getBoundingClientRect().bottom;
+      if(b > 0) breaks.push(Math.round(b));
+    });
+    breaks.sort(function(a,b){ return a-b; });
+
+    var canvas = await html2canvas(root, {
+      scale: SCALE, backgroundColor: '#ffffff', useCORS: true, logging: false,
+      width: CSS_W, height: totalH, windowWidth: CSS_W, windowHeight: totalH, scrollX: 0, scrollY: 0, x: 0, y: 0
+    });
+
+    var pdf = new JsPDF({unit:'mm', format:'a4', orientation:'portrait', compress:true});
+    var start = 0, first = true;
+    while(start < totalH - 2){
+      var limit = start + PAGE_CSS_H, end = Math.min(limit, totalH);
+      if(limit < totalH){
+        for(var i = breaks.length - 1; i >= 0; i--){
+          if(breaks[i] <= limit && breaks[i] > start + PAGE_CSS_H*0.4){ end = breaks[i]; break; }
+        }
+      }
+      var sliceH = end - start;
+      var slice = document.createElement('canvas');
+      slice.width = canvas.width;
+      slice.height = Math.round(sliceH * SCALE);
+      var ctx = slice.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, slice.width, slice.height);
+      ctx.drawImage(canvas, 0, Math.round(start*SCALE), canvas.width, slice.height, 0, 0, slice.width, slice.height);
+      if(!first) pdf.addPage();
+      pdf.addImage(slice.toDataURL('image/jpeg', 0.95), 'JPEG', MARGIN_MM, MARGIN_MM, CONTENT_W_MM, sliceH / PX_PER_MM);
+      first = false;
+      start = end;
+    }
+    pdf.save(filename);
   }catch(e){
-    console.warn('PDF err:',e);
+    console.warn('PDF err:', e);
     alert('⚠️ Erreur génération PDF.\nUtilisez 🖨️ Imprimer → "Enregistrer en PDF" dans votre navigateur.');
   }finally{
-    wrapper.remove();
-    window.scrollTo(0, savedScrollY);
+    frame.remove();
+    badge.remove();
   }
 }
 
@@ -5353,21 +5660,21 @@ function flDownloadExcel(ctx){
 
   var ht = 0;
   if(mode==='mag'){
-    rows.push(['Réf.','EAN13','Désignation','Couleur','Taille','Qté','Prix HT €','Total HT €']);
+    rows.push(['Réf.','EAN13','Désignation','Couleur','Taille','Qté','Prix HT €','PVP conseillé €','Total HT €']);
     lines.forEach(function(l){
       var qty=Number(l.qty),pu=Number(l.pu),tot=qty*pu; ht+=tot;
-      rows.push([l.ref||'',l.ean||'',l.nom||'',l.couleur||'',l.taille||'',qty,pu,tot]);
+      rows.push([l.ref||'',l.ean||'',l.nom||'',l.couleur||'',l.taille||'',qty,pu,flLinePvp(l)||'',tot]);
     });
   }else{
-    rows.push(['Réf. Cabesto','Désignation','Qté','Prix HT €','Total HT €']);
+    rows.push(['Réf. Cabesto','Désignation','Qté','Prix HT €','PVP conseillé €','Total HT €']);
     lines.forEach(function(l){
       var qty=Number(l.qty),pu=Number(l.puCab),tot=qty*pu; ht+=tot;
-      rows.push([l.pe||l.ref||'',l.desCab||l.nom||'',qty,pu,tot]);
+      rows.push([l.pe||l.ref||'',l.desCab||l.nom||'',qty,pu,flLinePvp(l)||'',tot]);
     });
   }
   rows.push([]);
 
-  var ncols = mode==='mag'?8:5;
+  var ncols = mode==='mag'?9:6;
   var pad = []; for(var pi=0;pi<ncols-2;pi++) pad.push('');
   var remiseMt = ht*remisePct/100;
   rows.push(pad.concat(['Total HT :',ht]));
@@ -5379,10 +5686,11 @@ function flDownloadExcel(ctx){
   rows.push(pad.concat(['TOTAL NET À PAYER :',ht-remiseMt+port]));
   rows.push([]);
   rows.push(['TVA non applicable — Art. 293 B CGI']);
+  if(docType!=='delivery') rows.push(['PVP : prix de vente public conseillé (TTC), donné à titre indicatif — non compris dans le total.']);
 
   var ws = XLSX.utils.aoa_to_sheet(rows);
-  if(mode==='mag') ws['!cols']=[{wch:12},{wch:14},{wch:35},{wch:12},{wch:8},{wch:6},{wch:12},{wch:12}];
-  else ws['!cols']=[{wch:16},{wch:35},{wch:6},{wch:12},{wch:12}];
+  if(mode==='mag') ws['!cols']=[{wch:12},{wch:14},{wch:35},{wch:12},{wch:8},{wch:6},{wch:12},{wch:15},{wch:12}];
+  else ws['!cols']=[{wch:16},{wch:35},{wch:6},{wch:12},{wch:15},{wch:12}];
   // Style: première ligne en gras (simulation — XLSX de base ne supporte pas le style sans xlsx-style)
   var wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, docLabel.substring(0,28));
@@ -5802,3 +6110,244 @@ document.addEventListener('DOMContentLoaded', function(){
   window.addEventListener('load', bindTabs);
 })();
 
+
+// ═══════════════════════════════════════════════════════════════════════
+// FORMATS DE L'IMPRIMANTE — l'application indique quel papier choisir
+// dans la fenêtre d'impression (plus besoin d'aller dans les réglages Windows).
+// ═══════════════════════════════════════════════════════════════════════
+var FL_PAPERS_KEY = 'fl_printer_papers_v1';
+var FL_DEFAULT_PAPERS = [
+  {nom:'USER', w:42.4, h:30},
+  {nom:'Nouveau support', w:52.3, h:39.9},
+  {nom:'etiquette ronde', w:32.5, h:15},
+  {nom:'2 x 4', w:53.3, h:101.6}
+];
+function flGetPapers(){
+  try{ var s = JSON.parse(localStorage.getItem(FL_PAPERS_KEY) || 'null'); if(Array.isArray(s) && s.length) return s; }catch(e){}
+  return FL_DEFAULT_PAPERS.slice();
+}
+function flSavePapers(list){ try{ localStorage.setItem(FL_PAPERS_KEY, JSON.stringify(list)); }catch(e){} }
+function flPaperEsc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function flMm(n){ return String(Math.round(n * 10) / 10).replace('.', ','); }
+
+// Le papier le plus proche qui contient l'étiquette (ni trop petit, ni beaucoup trop grand).
+function flMatchPaper(w, h){
+  var best = null, bestScore = Infinity;
+  flGetPapers().forEach(function(p){
+    var dw = p.w - w, dh = p.h - h;
+    if(dw < -1 || dh < -1 || dw > 6 || dh > 6) return;
+    var score = Math.abs(dw) + Math.abs(dh);
+    if(score < bestScore){ bestScore = score; best = p; }
+  });
+  return best;
+}
+
+// Chaque page imprimée prend exactement la hauteur du papier de l'imprimante (l'écart entre étiquettes est géré par l'imprimante).
+function flPrintFitCss(size){
+  try{
+    var w = parseFloat(size && size.w), h = parseFloat(size && size.h);
+    var p = flMatchPaper(w, h) || flMatchPaper(w, h - (printSettings.roundGapY || 0));
+    if(!p) return '';
+    return '.print-label-rect,.print-label-round-pair{height:' + p.h + 'mm!important;max-height:' + p.h + 'mm!important;overflow:hidden!important;}';
+  }catch(e){ return ''; }
+}
+
+function flLabelSizes(type){
+  if(type === 'rect'){
+    var seen = {};
+    (typeof queueRect !== 'undefined' && queueRect || []).forEach(function(it){
+      var d = getProductDimsV15(it.product); seen[d[0] + 'x' + d[1]] = d;
+    });
+    var arr = Object.keys(seen).map(function(k){ return seen[k]; });
+    return arr.length ? arr : [getProductDimsV15(null)];
+  }
+  var dia = printSettings.roundDiam || 15, gap = printSettings.roundGap || 2;
+  return [[dia * 2 + gap, dia]];
+}
+
+function flPaperHintHTML(type){
+  var sizes = flLabelSizes(type);
+  var lines = sizes.map(function(d){
+    var size = flMm(d[0]) + ' × ' + flMm(d[1]) + ' mm';
+    var p = flMatchPaper(d[0], d[1]);
+    if(p) return '📏 Étiquettes de <b>' + size + '</b> : dans la fenêtre d’impression, clique sur <b>« Plus de paramètres »</b> → <b>« Taille du papier »</b> → choisis <b>« ' + flPaperEsc(p.nom) + ' »</b>. Chrome s’en souviendra pour la prochaine fois.';
+    return '⚠️ Étiquettes de <b>' + size + '</b> : aucun format de ton imprimante ne correspond. Crée-le une seule fois dans Windows (Préférences d’impression de la Xprinter → nouveau format de ' + size + '), puis ajoute-le dans « Formats de mon imprimante » plus bas.';
+  });
+  if(sizes.length > 1) lines.unshift('⚠️ Ta file contient <b>' + sizes.length + ' tailles d’étiquettes</b> différentes : imprime une taille à la fois.');
+  return lines.join('<br>');
+}
+
+function flRenderPaperHints(){
+  ['rect', 'round'].forEach(function(t){
+    var el = document.getElementById(t + '-paper-hint');
+    if(el){ try{ el.innerHTML = flPaperHintHTML(t); }catch(e){ el.textContent = ''; } }
+  });
+  var list = document.getElementById('fl-papers-list');
+  if(list){
+    list.innerHTML = flGetPapers().map(function(p, i){
+      return '<li><b>' + flPaperEsc(p.nom) + '</b> — ' + flMm(p.w) + ' × ' + flMm(p.h) + ' mm '
+        + '<button class="btn btn-sm" style="padding:2px 8px;font-size:11px;margin-left:6px;" onclick="flRemovePaper(' + i + ')">Retirer</button></li>';
+    }).join('');
+  }
+}
+window.flRenderPaperHints = flRenderPaperHints;
+
+window.flAddPaper = function(){
+  var nom = ((document.getElementById('fl-paper-name') || {}).value || '').trim();
+  var w = parseFloat(((document.getElementById('fl-paper-w') || {}).value || '').replace(',', '.'));
+  var h = parseFloat(((document.getElementById('fl-paper-h') || {}).value || '').replace(',', '.'));
+  if(!nom || !(w > 0) || !(h > 0)){ alert('Indique le nom exact du format et ses dimensions en millimètres.'); return; }
+  var list = flGetPapers().filter(function(p){ return p.nom !== nom; });
+  list.push({nom: nom, w: w, h: h});
+  flSavePapers(list);
+  ['fl-paper-name', 'fl-paper-w', 'fl-paper-h'].forEach(function(id){ var e = document.getElementById(id); if(e) e.value = ''; });
+  flRenderPaperHints();
+};
+window.flRemovePaper = function(i){
+  var list = flGetPapers();
+  if(!list[i] || !confirm('Retirer le format « ' + list[i].nom + ' » de la liste ?')) return;
+  list.splice(i, 1);
+  flSavePapers(list.length ? list : FL_DEFAULT_PAPERS.slice());
+  flRenderPaperHints();
+};
+
+(function(){
+  if(typeof renderQueues === 'function'){
+    var _renderQueues = renderQueues;
+    renderQueues = function(){ var r = _renderQueues.apply(this, arguments); flRenderPaperHints(); return r; };
+    window.renderQueues = renderQueues;
+  }
+  if(typeof savePrintSettings === 'function'){
+    var _savePrintSettings = savePrintSettings;
+    savePrintSettings = function(){ var r = _savePrintSettings.apply(this, arguments); flRenderPaperHints(); return r; };
+    window.savePrintSettings = savePrintSettings;
+  }
+  ['input', 'change'].forEach(function(ev){
+    document.addEventListener(ev, function(e){
+      if(e.target && e.target.closest && e.target.closest('#page-impression') && !e.target.closest('#fl-papers-box')) flRenderPaperHints();
+    });
+  });
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', flRenderPaperHints);
+  else flRenderPaperHints();
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+// NOUVEAU PRODUIT — listes des valeurs existantes pour un rangement automatique
+// ═══════════════════════════════════════════════════════════════════════
+function flEanValide(code){
+  if(!/^\d{13}$/.test(code)) return false;
+  var s = 0;
+  for(var i = 0; i < 12; i++) s += (+code[i]) * (i % 2 ? 3 : 1);
+  return (10 - s % 10) % 10 === +code[12];
+}
+(function(){
+  function val(id){ var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; }
+  function fillDl(id, values){
+    var dl = document.getElementById(id);
+    if(dl) dl.innerHTML = values.map(function(v){ return '<option value="' + flCatEsc(v) + '"></option>'; }).join('');
+  }
+  function refresh(){
+    var idx = flModelIndex();
+    fillDl('dl-cat-famille', FL_CATS.map(function(c){ return c[0]; }));
+    var fam = val('catAddFamille'), nom = val('catAddNom'), tai = val('catAddTaille'), gra = val('catAddGrammage');
+    var nomKey = nom.toLowerCase();
+    if(!fam && idx[nomKey]){ var f = document.getElementById('catAddFamille'); if(f){ f.value = idx[nomKey].famille; fam = f.value; } }
+    var models = {};
+    CATALOGUE.forEach(function(p){ if(!flIsCat(fam) || flCanonCat(p, idx) === fam) models[flCanonModel(p, idx)] = 1; });
+    fillDl('dl-cat-modele', Object.keys(models).sort(function(a, b){ return a.localeCompare(b, 'fr'); }));
+    var inModel = CATALOGUE.filter(function(p){ return flCanonModel(p, idx).toLowerCase() === nomKey; });
+    var sizes = {};
+    inModel.forEach(function(p){ var s = flSizeInfo(p.taille); if(s.key !== 'z') sizes[s.key] = s; });
+    fillDl('dl-cat-taille', Object.keys(sizes).map(function(k){ return sizes[k]; }).sort(function(a, b){ return flCmpRank(a.rank, b.rank); }).map(function(s){ return s.label; }));
+    var tKey = flSizeInfo(tai).key, grams = {};
+    inModel.forEach(function(p){ if(tai && flSizeInfo(p.taille).key !== tKey) return; var g = flGramInfo(p.grammage); if(g.key !== 'z') grams[g.key] = g; });
+    fillDl('dl-cat-gram', Object.keys(grams).map(function(k){ return grams[k]; }).sort(function(a, b){ return a.rank - b.rank; }).map(function(g){ return g.label; }));
+    var where = document.getElementById('catAddWhere');
+    if(!where) return;
+    if(!nom){ where.textContent = 'Choisis la catégorie et le modèle dans les listes : le produit se rangera tout seul avec les mêmes tailles et grammages.'; return; }
+    var p = {produit: nom, famille: fam, taille: tai, grammage: gra};
+    var c = flCanonCat(p, idx), m = flCanonModel(p, idx), sI = flSizeInfo(tai), gI = flGramInfo(gra);
+    var same = CATALOGUE.filter(function(x){ return flCanonCat(x, idx) === c && flCanonModel(x, idx) === m && flSizeInfo(x.taille).key === sI.key && flGramInfo(x.grammage).key === gI.key; }).length;
+    where.textContent = '📍 Il sera rangé dans : ' + flCatLabel(c) + ' → ' + m + ' → ' + sI.label + ' → ' + gI.label +
+      (same ? ' (avec ' + same + ' autre' + (same > 1 ? 's' : '') + ' couleur' + (same > 1 ? 's' : '') + ')' : ' (nouveau groupe)');
+  }
+  window.flCatAddRefresh = refresh;
+  document.addEventListener('input', function(e){
+    if(e.target && /^catAdd(Famille|Nom|Taille|Grammage)$/.test(e.target.id || '')) refresh();
+  });
+  var _show = window.catShowAddProduit;
+  window.catShowAddProduit = function(){ if(typeof _show === 'function') _show.apply(this, arguments); refresh(); };
+  var _save = window.catSaveProduit;
+  window.catSaveProduit = async function(){
+    var st = document.getElementById('catAddStatus');
+    var ref = val('catAddRef');
+    var ean = val('catAddEan').replace(/\D/g, '');
+    if(ean){
+      if(!flEanValide(ean)){ if(st){ st.textContent = '❌ Code-barres invalide : il faut 13 chiffres, et le dernier (clé de contrôle) doit correspondre.'; st.style.color = '#c62828'; } return; }
+      var deja = CATALOGUE.find(function(p){ return String(p.ean || '') === ean && p.ref !== ref; });
+      if(deja){ if(st){ st.textContent = '❌ Ce code-barres est déjà utilisé par ' + deja.produit + ' ' + (deja.couleur || '') + ' (' + deja.ref + ').'; st.style.color = '#c62828'; } return; }
+    }
+    if(typeof _save === 'function') await _save.apply(this, arguments);
+    if(!ref || !CATALOGUE.some(function(p){ return p.ref === ref; })) return;
+    setTimeout(function(){
+      var p = CATALOGUE.find(function(x){ return x.ref === ref; });
+      if(!p) return;
+      var idx = flModelIndex();
+      catActiveCat = flCanonCat(p, idx); activeFilter = flCanonModel(p, idx); catFSize = ''; catFGram = ''; catHighlightRef = ref;
+      buildFilters(); renderCatalogue();
+      var el = document.querySelector('#cat-grid .cat-card[data-ref="' + (window.CSS && CSS.escape ? CSS.escape(ref) : ref) + '"]');
+      if(el) el.scrollIntoView({behavior: 'smooth', block: 'center'});
+      setTimeout(function(){ catHighlightRef = ''; }, 20000);
+    }, 1000);
+  };
+})();
+
+// ═══════════════════════════════════════════════════════════════════════
+// APERÇU DES ÉTIQUETTES DE LA FILE — chaque produit tel qu'il sera imprimé
+// ═══════════════════════════════════════════════════════════════════════
+function flRenderLabelPreviews(){
+  var esc = flPaperEsc, Z = 2;
+  var rectBox = document.getElementById('rect-label-preview');
+  if(rectBox){
+    var items = (typeof queueRect !== 'undefined' && queueRect) || [];
+    if(!items.length){ rectBox.innerHTML = ''; }
+    else {
+      var nbWarn = 0;
+      var cards = items.map(function(it){
+        var p = it.product || {}, d = getProductDimsV15(p), f = flLabelFitInfo(p, d[0]), w = [];
+        if(f.title.wrap) w.push('nom sur 2 lignes'); else if(f.title.reduced) w.push('nom réduit');
+        if(f.info.reduced || f.info.wrap) w.push('taille/grammage réduits');
+        if(f.ref.reduced || f.ref.wrap) w.push('référence réduite');
+        if(w.length) nbWarn++;
+        return '<div class="fl-prev-item"><div class="fl-prev-frame" style="width:' + (d[0] * Z) + 'mm;height:' + (d[1] * Z) + 'mm">'
+          + '<div style="transform:scale(' + Z + ');transform-origin:top left;width:' + d[0] + 'mm;height:' + d[1] + 'mm">' + buildLabelHTML(p, d[0], d[1], false) + '</div></div>'
+          + '<div class="fl-prev-cap"><b>' + esc(p.ref) + '</b> × ' + (it.qty || 1)
+          + (w.length ? '<span class="fl-prev-warn">⚠️ ' + esc(w.join(', ')) + ' pour que tout tienne</span>' : '<span class="fl-prev-ok">✓ tout tient</span>') + '</div></div>';
+      }).join('');
+      rectBox.innerHTML = '<div class="fl-prev-head">👁 Aperçu de tes étiquettes, telles qu’elles vont sortir <small>(agrandies × 2)</small>'
+        + (nbWarn ? ' — <span class="fl-prev-warn">' + nbWarn + ' ajustée' + (nbWarn > 1 ? 's' : '') + ' automatiquement</span>' : '') + '</div><div class="fl-prev-grid">' + cards + '</div>';
+    }
+  }
+  var roundBox = document.getElementById('round-label-preview');
+  if(roundBox){
+    var ritems = (typeof queueRound !== 'undefined' && queueRound) || [];
+    if(!ritems.length){ roundBox.innerHTML = ''; }
+    else {
+      var dia = +printSettings.roundDiam || 15, R = 3;
+      roundBox.innerHTML = '<div class="fl-prev-head">👁 Aperçu des étiquettes rondes <small>(agrandies × 3)</small></div><div class="fl-prev-grid">'
+        + ritems.map(function(it){
+          var p = it.product || {}, f = flRoundFitInfo(p), warn = f.title.reduced || f.title.wrap || f.sub.reduced || f.sub.wrap;
+          return '<div class="fl-prev-item"><div class="fl-prev-frame fl-prev-round" style="width:' + (dia * R) + 'mm;height:' + (dia * R) + 'mm">'
+            + '<div style="transform:scale(' + R + ');transform-origin:top left;width:' + dia + 'mm;height:' + dia + 'mm">' + buildOneRoundHTML(p) + '</div></div>'
+            + '<div class="fl-prev-cap"><b>' + esc(p.ref) + '</b> × ' + (it.qty || 1) + (warn ? '<span class="fl-prev-warn">⚠️ texte réduit pour tenir</span>' : '<span class="fl-prev-ok">✓ tout tient</span>') + '</div></div>';
+        }).join('') + '</div>';
+    }
+  }
+}
+window.flRenderLabelPreviews = flRenderLabelPreviews;
+(function(){
+  var _hints = flRenderPaperHints;
+  flRenderPaperHints = function(){ _hints.apply(this, arguments); try{ flRenderLabelPreviews(); }catch(e){ console.warn('Aperçu étiquettes :', e); } };
+  window.flRenderPaperHints = flRenderPaperHints;
+  try{ flRenderLabelPreviews(); }catch(e){}
+})();

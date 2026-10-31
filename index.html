@@ -13,15 +13,15 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js/dist/tesseract.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="style.css"/>
+<style>html:not(.fl-ok) #app-header,html:not(.fl-ok) #nav-tabs,html:not(.fl-ok) #main-area,html:not(.fl-ok) #fl-offline-banner{visibility:hidden!important}html:not(.fl-ok) body{background:#0d1b2a}</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js" integrity="sha384-Cck14aA9cifjYolcnjebXRfWGkz5ltHMBiG4px/j8GS+xQcb7OhNQWZYyWjQ+UwQ" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/tesseract.min.js" integrity="sha384-2BQ3U3OdKOb0Uczxqr41I9UvZkzr4V9Hv8uSzMMZAlmhsFClvdZX5wi5fDCzG+tM" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="style.css?v=20261017"/>
 <link rel="stylesheet" href="comptabilite.css"/>
 
 <style id="fl-lock-logo-app-style">
@@ -172,7 +172,6 @@ function closeSidebar(){
   <div class="sidebar-group">
     <div class="sidebar-group-label">Marketing</div>
     <button class="tab-btn" id="tab-shopify"><span class="tab-icon">🛒</span>Shopify</button>
-    <button class="tab-btn" id="tab-blog-ravager"><span class="tab-icon">✍️</span>Blog Ravager</button>
     <button class="tab-btn" id="tab-seo-shopify"><span class="tab-icon">🔍</span>SEO Shopify</button>
   </div>
   <div class="sidebar-bottom">
@@ -267,7 +266,12 @@ Rouget 9cm 14g x8"></textarea>
       <button onclick="flPickBackupFolder()" style="padding:7px 14px;background:#5c3d11;color:#fff;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap" title="Choisir le dossier de sauvegarde sur votre ordinateur">📁 Configurer dossier</button>
       <span class="fl-backup-folder-label" style="font-size:11px;color:var(--muted);align-self:center;"></span>
     </div>
+    <div class="cat-cats" id="cat-cats" aria-label="Catégories"></div>
     <div class="filter-bar" id="filter-bar"></div>
+    <div class="cat-filters2">
+      <select id="cat-f-size" aria-label="Filtrer par taille"></select>
+      <select id="cat-f-gram" aria-label="Filtrer par grammage"></select>
+    </div>
   </div>
 
   <!-- Panel ajout produit (caché par défaut) -->
@@ -283,12 +287,12 @@ Rouget 9cm 14g x8"></textarea>
           <input id="catAddRef" placeholder="Ex: MISTIK-VE-9-12" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
         </div>
         <div>
-          <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Famille *</label>
-          <input id="catAddFamille" placeholder="Ex: Mistik Shad" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+          <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Catégorie *</label>
+          <input id="catAddFamille" list="dl-cat-famille" autocomplete="off" placeholder="Ex : Leurre prêt à pêcher" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
         </div>
         <div>
-          <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Nom produit *</label>
-          <input id="catAddNom" placeholder="Ex: Mistik Shad" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+          <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Modèle *</label>
+          <input id="catAddNom" list="dl-cat-modele" autocomplete="off" placeholder="Ex : Mistik Shad" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
         </div>
         <div>
           <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Couleur</label>
@@ -296,11 +300,11 @@ Rouget 9cm 14g x8"></textarea>
         </div>
         <div>
           <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Taille</label>
-          <input id="catAddTaille" placeholder="Ex: 9 cm" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+          <input id="catAddTaille" list="dl-cat-taille" autocomplete="off" placeholder="Ex : 9 cm" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
         </div>
         <div>
           <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Grammage</label>
-          <input id="catAddGrammage" placeholder="Ex: 12 g" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+          <input id="catAddGrammage" list="dl-cat-gram" autocomplete="off" placeholder="Ex : 12 g" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
         </div>
         <div>
           <label style="display:block;font-size:11px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Conditionnement</label>
@@ -330,6 +334,8 @@ Rouget 9cm 14g x8"></textarea>
           <input id="catAddNotes" placeholder="Notes optionnelles" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13px">
         </div>
       </div>
+      <datalist id="dl-cat-famille"></datalist><datalist id="dl-cat-modele"></datalist><datalist id="dl-cat-taille"></datalist><datalist id="dl-cat-gram"></datalist>
+      <div id="catAddWhere" style="margin:0 0 12px;padding:10px 14px;border-radius:10px;background:#e3f2fd;color:#0d47a1;font-size:13.5px;font-weight:700;"></div>
       <div style="display:flex;gap:10px;align-items:center">
         <button onclick="catSaveProduit()" style="padding:11px 20px;background:var(--accent);color:var(--primary);border:none;border-radius:9px;font-weight:900;font-size:14px;cursor:pointer">💾 Enregistrer</button>
         <button onclick="catHideAddProduit()" style="padding:11px 14px;background:#fff;color:#888;border:1px solid var(--border);border-radius:9px;cursor:pointer;font-size:13px">Annuler</button>
@@ -386,7 +392,7 @@ Rouget 9cm 14g x8"></textarea>
   <div class="card print-calibration-card">
     <div class="card-title">🎯 V5 — Calibrage visuel avant impression</div>
     <div class="alert alert-info" style="margin-bottom:12px;">
-      Réglez ici la taille réelle de l’étiquette, le code-barres, les textes et les étiquettes rondes. Les réglages sont sauvegardés automatiquement sur cet ordinateur.
+      Réglez ici la taille réelle de l’étiquette rectangulaire, le code-barres et les textes. Les réglages des étiquettes rondes sont en bas de la page, à côté de leur file. Les réglages sont sauvegardés automatiquement sur cet ordinateur.
     </div>
 
     <div class="calib-layout">
@@ -399,19 +405,11 @@ Rouget 9cm 14g x8"></textarea>
           <div><label class="lbl">Code-barres largeur</label><input type="range" id="set-bc-width" min="1" max="5" step="0.1" value="2.4"/></div>
           <div><label class="lbl">Code-barres hauteur px</label><input type="range" id="set-bc-height" min="25" max="110" step="1" value="62"/></div>
           <div><label class="lbl">Code-barres chiffres px</label><input type="range" id="set-bc-font" min="6" max="16" step="1" value="9"/></div>
-          <div><label class="lbl">Taille texte produit</label><input type="range" id="set-title-font" min="7" max="22" step="1" value="13"/></div>
-          <div><label class="lbl">Taille texte taille/grammage</label><input type="range" id="set-info-font" min="7" max="22" step="1" value="13"/></div>
-          <div><label class="lbl">Taille référence</label><input type="range" id="set-ref-font" min="6" max="18" step="1" value="9"/></div>
+          <div><label class="lbl">Taille texte produit (max)</label><input type="range" id="set-title-font" min="7" max="22" step="1" value="13"/></div>
+          <div><label class="lbl">Taille texte taille/grammage (max)</label><input type="range" id="set-info-font" min="7" max="22" step="1" value="13"/></div>
+          <div><label class="lbl">Taille référence (max)</label><input type="range" id="set-ref-font" min="6" max="18" step="1" value="9"/></div>
         </div>
-
-        <h3 style="margin-top:14px;">⬤ Ronde — 2 étiquettes côte à côte</h3>
-        <div class="grid2">
-          <div><label class="lbl">Diamètre mm</label><input type="number" id="set-round-diam" value="15" step="0.1" min="8" max="40"/></div>
-          <div><label class="lbl">Espace entre les 2 ronds mm</label><input type="number" id="set-round-gap" value="2" step="0.1" min="0" max="10"/></div>
-          <div><label class="lbl">Espace haut/bas rondes mm</label><input type="number" id="set-round-gap-y" value="2" step="0.1" min="0" max="10"/></div>
-          <div><label class="lbl">Texte ronde — taille</label><input type="range" id="set-round-title" min="6" max="22" step="1" value="9"/></div>
-          <div><label class="lbl">Texte ronde — grammage</label><input type="range" id="set-round-sub" min="6" max="20" step="1" value="8"/></div>
-        </div>
+        <p style="margin:8px 0 0;padding:8px 12px;border-radius:8px;background:#e8f5e9;color:#1b5e20;font-size:12.5px;line-height:1.5;">✨ Les tailles de texte sont des <b>maximums</b> : si un nom ou une référence est trop long, il est réduit automatiquement, seulement sur l’étiquette concernée. Plus besoin d’essai : l’aperçu de la page Impression montre chaque étiquette avant d’imprimer.</p>
 
         <h3 style="margin-top:14px;">🖨️ Impression progressive</h3>
         <div class="grid2">
@@ -428,8 +426,6 @@ Rouget 9cm 14g x8"></textarea>
       <div class="calib-preview">
         <div class="preview-title">Aperçu taille réelle</div>
         <div id="rect-live-preview"></div>
-        <div class="preview-title" style="margin-top:14px;">Aperçu rond ×2</div>
-        <div id="round-live-preview"></div>
       </div>
     </div>
   </div>
@@ -439,6 +435,9 @@ Rouget 9cm 14g x8"></textarea>
     <div style="background:var(--primary);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;">1</div>
     <div style="font-size:14px;font-weight:700;">Insérez le rouleau <span style="color:var(--accent)">40 × 30 mm</span> dans l'imprimante</div>
   </div>
+
+  <div id="rect-label-preview" class="fl-prev"></div>
+  <div id="rect-paper-hint" style="margin:0 0 10px;padding:10px 14px;border-radius:10px;background:#e8f1fb;border:1px solid #b6d0ee;color:#0d3c6e;font-size:13px;line-height:1.55;"></div>
 
   <!-- Queue rectangulaire -->
   <div class="queue-section" id="queue-rect-section">
@@ -470,11 +469,34 @@ Rouget 9cm 14g x8"></textarea>
     </div>
   </div>
 
+  <!-- RÉGLAGES DES ÉTIQUETTES RONDES (à côté de leur file) -->
+  <div class="card print-calibration-card" style="margin-top:12px;">
+    <div class="card-title">⬤ Réglages des étiquettes rondes — 2 étiquettes côte à côte</div>
+    <div class="calib-layout">
+      <div class="calib-controls">
+        <div class="grid2">
+          <div><label class="lbl">Diamètre mm</label><input type="number" id="set-round-diam" value="15" step="0.1" min="8" max="40"/></div>
+          <div><label class="lbl">Espace entre les 2 ronds mm</label><input type="number" id="set-round-gap" value="2" step="0.1" min="0" max="10"/></div>
+          <div><label class="lbl">Espace haut/bas rondes mm</label><input type="number" id="set-round-gap-y" value="2" step="0.1" min="0" max="10"/></div>
+          <div><label class="lbl">Texte ronde — taille</label><input type="range" id="set-round-title" min="6" max="22" step="1" value="9"/></div>
+          <div><label class="lbl">Texte ronde — grammage</label><input type="range" id="set-round-sub" min="6" max="20" step="1" value="8"/></div>
+        </div>
+      </div>
+      <div class="calib-preview">
+        <div class="preview-title">Aperçu rond ×2</div>
+        <div id="round-live-preview"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ETAPE 2 (only shown if rougets in queue) -->
   <div id="step2-label" style="display:none;align-items:center;gap:10px;margin-bottom:8px;">
     <div style="background:var(--danger);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;">2</div>
     <div style="font-size:14px;font-weight:700;">Insérez le rouleau <span style="color:#e53935;">⬤ rond 15 mm</span> dans l'imprimante</div>
   </div>
+
+  <div id="round-label-preview" class="fl-prev"></div>
+  <div id="round-paper-hint" style="margin:0 0 10px;padding:10px 14px;border-radius:10px;background:#e8f1fb;border:1px solid #b6d0ee;color:#0d3c6e;font-size:13px;line-height:1.55;"></div>
 
   <!-- Queue ronde -->
   <div class="queue-section" id="queue-round-section">
@@ -492,6 +514,18 @@ Rouget 9cm 14g x8"></textarea>
       </button>
     </div>
   </div>
+
+  <details id="fl-papers-box" style="margin:14px 0;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--card);font-size:13px;">
+    <summary style="cursor:pointer;font-weight:700;">🖨️ Formats de mon imprimante (Xprinter)</summary>
+    <p style="margin:8px 0;color:var(--muted);line-height:1.5;">Ce sont les formats de papier enregistrés dans ton imprimante. L’application choisit automatiquement le bon pour chaque étiquette. Pour une nouvelle taille d’étiquette : crée d’abord le format dans Windows (Préférences d’impression de la Xprinter), puis ajoute-le ici avec <b>exactement le même nom</b>.</p>
+    <ul id="fl-papers-list" style="margin:0 0 10px;padding-left:18px;line-height:1.9;"></ul>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+      <input id="fl-paper-name" placeholder="Nom exact (ex : etiquette ronde)" style="flex:1 1 180px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;">
+      <input id="fl-paper-w" type="number" step="0.1" placeholder="Largeur mm" style="width:110px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;">
+      <input id="fl-paper-h" type="number" step="0.1" placeholder="Hauteur mm" style="width:110px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;">
+      <button class="btn btn-sm" onclick="flAddPaper()">➕ Ajouter ce format</button>
+    </div>
+  </details>
 
   <!-- Récap total -->
   <div id="print-summary-block" style="display:none;">
@@ -667,24 +701,37 @@ Rouget 9cm 14g x8"></textarea>
           <option value="P4">Partie 4 — 4ᵉ livraison</option>
         </select>
       </div>
+      <div>
+        <label class="lbl">Paiement du magasin</label>
+        <select id="mag-delai" onchange="magUpdatePreview(_magPreviewType||'invoice')" style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;background:#fff;">
+          <option value="0">Immédiat (virement)</option>
+          <option value="7">À 1 semaine (prélèvement SEPA)</option>
+          <option value="14">À 2 semaines (prélèvement SEPA)</option>
+          <option value="21">À 3 semaines (prélèvement SEPA)</option>
+          <option value="28">À 4 semaines (prélèvement SEPA)</option>
+        </select>
+      </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#edf2ff;border-radius:8px;border-left:3px solid #1565c0;">
         <span style="font-size:11px;font-weight:800;color:#1565c0;letter-spacing:.05em;min-width:75px;">🧾 FACTURE</span>
         <button class="btn" style="background:#1565c0;color:#fff;border-color:#1565c0;font-weight:700;" onclick="_magArchive('invoice',{autoDownload:true})">💾 Enregistrer</button>
         <button class="btn btn-success" onclick="magPrint('invoice')">🖨️ Imprimer</button>
+        <button class="btn" style="background:#0b1b3f;color:#fff;border-color:#0b1b3f;font-weight:700;" onclick="magPrint('invoice',true)" title="Même facture, tout en bleu nuit : pour imprimer sans cartouche noire">🔵 Imprimer en bleu nuit</button>
         <button class="btn btn-dark" onclick="magDownload('invoice')">⬇️ Télécharger</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#fff3e0;border-radius:8px;border-left:3px solid #e65100;">
         <span style="font-size:11px;font-weight:800;color:#e65100;letter-spacing:.05em;min-width:75px;">📦 BON DE LIVRAISON</span>
         <button class="btn" style="background:#e65100;color:#fff;border-color:#e65100;font-weight:700;" onclick="_magArchive('delivery',{autoDownload:true})">💾 Enregistrer</button>
         <button class="btn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-weight:700;" onclick="magPrint('delivery')">🖨️ Imprimer</button>
+        <button class="btn" style="background:#0b1b3f;color:#fff;border-color:#0b1b3f;font-weight:700;" onclick="magPrint('delivery',true)" title="Même bon de livraison, tout en bleu nuit : pour imprimer sans cartouche noire">🔵 Imprimer en bleu nuit</button>
         <button class="btn btn-dark" onclick="magDownload('delivery')">⬇️ Télécharger</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#f3e5f5;border-radius:8px;border-left:3px solid #7b1fa2;">
         <span style="font-size:11px;font-weight:800;color:#7b1fa2;letter-spacing:.05em;min-width:75px;">🛒 COMMANDE</span>
         <button class="btn" style="background:#7b1fa2;color:#fff;border-color:#7b1fa2;font-weight:700;" onclick="_magArchive('commande',{autoDownload:true})">💾 Enregistrer</button>
         <button class="btn" style="background:#6a1b9a;color:#fff;border-color:#6a1b9a;font-weight:700;" onclick="magPrint('commande')">🖨️ Imprimer</button>
+        <button class="btn" style="background:#0b1b3f;color:#fff;border-color:#0b1b3f;font-weight:700;" onclick="magPrint('commande',true)" title="Même commande, tout en bleu nuit : pour imprimer sans cartouche noire">🔵 Imprimer en bleu nuit</button>
         <button class="btn btn-dark" onclick="magDownload('commande')">⬇️ Télécharger</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#e8f5e9;border-radius:8px;border-left:3px solid #2e7d32;">
@@ -785,18 +832,21 @@ Rouget 9cm 14g x8"></textarea>
         <span style="font-size:11px;font-weight:800;color:#c62828;letter-spacing:.05em;min-width:75px;">🧾 FACTURE</span>
         <button class="btn" style="background:#c62828;color:#fff;border-color:#c62828;font-weight:700;" onclick="_cabArchive('invoice',{autoDownload:true})">💾 Enregistrer</button>
         <button class="btn" style="background:#c62828;color:#fff;border-color:#c62828;font-weight:700;" onclick="cabPrint('invoice')">🖨️ Imprimer</button>
+        <button class="btn" style="background:#0b1b3f;color:#fff;border-color:#0b1b3f;font-weight:700;" onclick="cabPrint('invoice',true)" title="Même facture, tout en bleu nuit : pour imprimer sans cartouche noire">🔵 Imprimer en bleu nuit</button>
         <button class="btn btn-dark" onclick="cabDownload('invoice')">⬇️ Télécharger</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#fff3e0;border-radius:8px;border-left:3px solid #e65100;">
         <span style="font-size:11px;font-weight:800;color:#e65100;letter-spacing:.05em;min-width:75px;">📦 BON DE LIVRAISON</span>
         <button class="btn" style="background:#e65100;color:#fff;border-color:#e65100;font-weight:700;" onclick="_cabArchive('delivery',{autoDownload:true})">💾 Enregistrer</button>
         <button class="btn" style="background:#2e7d32;color:#fff;border-color:#2e7d32;font-weight:700;" onclick="cabPrint('delivery')">🖨️ Imprimer</button>
+        <button class="btn" style="background:#0b1b3f;color:#fff;border-color:#0b1b3f;font-weight:700;" onclick="cabPrint('delivery',true)" title="Même bon de livraison, tout en bleu nuit : pour imprimer sans cartouche noire">🔵 Imprimer en bleu nuit</button>
         <button class="btn btn-dark" onclick="cabDownload('delivery')">⬇️ Télécharger</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#f3e5f5;border-radius:8px;border-left:3px solid #7b1fa2;">
         <span style="font-size:11px;font-weight:800;color:#7b1fa2;letter-spacing:.05em;min-width:75px;">🛒 COMMANDE</span>
         <button class="btn" style="background:#7b1fa2;color:#fff;border-color:#7b1fa2;font-weight:700;" onclick="_cabArchive('commande',{autoDownload:true})">💾 Enregistrer</button>
         <button class="btn" style="background:#6a1b9a;color:#fff;border-color:#6a1b9a;font-weight:700;" onclick="cabPrint('commande')">🖨️ Imprimer</button>
+        <button class="btn" style="background:#0b1b3f;color:#fff;border-color:#0b1b3f;font-weight:700;" onclick="cabPrint('commande',true)" title="Même commande, tout en bleu nuit : pour imprimer sans cartouche noire">🔵 Imprimer en bleu nuit</button>
         <button class="btn btn-dark" onclick="cabDownload('commande')">⬇️ Télécharger</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 12px;background:#e8f5e9;border-radius:8px;border-left:3px solid #2e7d32;">
@@ -870,7 +920,6 @@ Rouget 9cm 14g x8"></textarea>
         <button onclick="flBackupDownload()" style="padding:4px 12px;background:#2e7d32;color:#fff;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;" title="Sauvegarder les factures dans le dossier configuré">💾 Sauvegarder</button>
         <button onclick="flPickBackupFolder()" style="padding:4px 12px;background:#5c3d11;color:#fff;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;" title="Choisir le dossier de sauvegarde sur votre ordinateur">📁 Configurer dossier</button>
         <span class="fl-backup-folder-label" style="font-size:10px;color:var(--muted);align-self:center;"></span>
-        <button onclick="flRenumeroterFactures()" style="padding:4px 12px;background:#7b1fa2;color:#fff;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;" title="Combler les trous dans la numérotation (factures pas encore envoyées aux clients uniquement)">🔧 Renuméroter</button>
         <button onclick="histoSelectClient('')" style="padding:4px 10px;background:#444;color:#fff;border:none;border-radius:6px;font-size:11px;cursor:pointer;">✕ Tout voir</button>
       </div>
     </div>
@@ -900,6 +949,7 @@ Rouget 9cm 14g x8"></textarea>
           <option value="paye">✅ Payé</option>
           <option value="en_attente">⏳ En attente</option>
           <option value="retard">🔴 En retard</option>
+          <option value="annule">🚫 Annulé</option>
         </select>
       </div>
     </div>
@@ -1325,9 +1375,12 @@ Rouget 9cm 14g x8"></textarea>
           <button class="cpro-btn cpro-green" onclick="pMarkValide()">✅ Valider le compte</button>
           <button class="cpro-btn cpro-ghost" onclick="pEditMode()">✏️ Modifier</button>
           <button class="cpro-btn cpro-shopify" onclick="pOpenShopify()">🛒 Créer dans Shopify</button>
+          <button class="cpro-btn cpro-ghost" style="border-color:#635bff;color:#a5a0ff" onclick="pStripeSepa()">🏦 Mandat SEPA (Stripe)</button>
+          <button class="cpro-btn cpro-ghost" style="border-color:#635bff;color:#a5a0ff" onclick="pGenEmailSepa()" title="Mail court pour un magasin déjà client : seulement le lien du mandat SEPA, sans connexion à la boutique">✉️ Email mandat SEPA seul</button>
           <button class="cpro-btn cpro-gold" onclick="pGenEmail()">📧 Générer l'email</button>
           <button class="cpro-btn cpro-red" onclick="pDeleteClient()">🗑 Supprimer</button>
         </div>
+        <div id="proSepaResult" style="display:none;margin-top:10px;background:#0f0d24;border:1px solid #635bff66;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.6;color:#d6d4ff;word-break:break-all"></div>
       </div>
 
       <!-- Panel email -->
@@ -1877,10 +1930,11 @@ Rouget 9cm 14g x8"></textarea>
 </section>
 
 <div id="pToast"></div>
-<script src="catalogue.js?v=20260603"></script>
-<script src="app.js?v=20260719"></script>
-<script src="comptes-pro.js?v=20260603"></script>
-<script src="comptabilite.js?v=20260603"></script>
+<script src="catalogue.js?v=20261017"></script>
+<script src="app.js?v=20261031"></script>
+<script src="comptes-pro.js?v=20261031d"></script>
+<script src="comptabilite.js?v=20261004"></script>
+<script src="fl-securite.js?v=20261004"></script>
 <script id="fl-v39-nav-clean">
 (function(){
   function safeRefresh(name){
@@ -1946,8 +2000,10 @@ Rouget 9cm 14g x8"></textarea>
       <button onclick="document.getElementById('modalShopify').style.display='none'" style="background:none;border:none;color:#666;font-size:28px;cursor:pointer;line-height:1">×</button>
     </div>
     <div style="background:#0a0a0a;border:1px solid #1e1e1e;border-radius:10px;padding:16px;margin-bottom:14px;font-size:13px;line-height:2;color:#ccc;white-space:pre-wrap;font-family:monospace" id="shopifyClientInfo">—</div>
+    <button id="shopifyPushBtn" onclick="pShopifyPush()" style="width:100%;padding:14px;margin-bottom:10px;background:#00c896;color:#04140d;border:none;border-radius:10px;font-weight:900;font-size:15px;cursor:pointer">🛒 Créer / mettre à jour dans Shopify</button>
+    <div id="shopifyPushResult" style="display:none;background:#0a0a0a;border:1px solid #1e1e1e;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;line-height:1.5"></div>
     <div style="background:#1a1200;border:1px solid #e8c84033;border-radius:8px;padding:10px 14px;font-size:12px;color:#e8c840;margin-bottom:14px">
-      💡 Dans Shopify : Clients → Nouveau client → colle les infos + applique les tags
+      💡 Un clic : le client est créé dans ta boutique (ou mis à jour s'il existe déjà) avec les étiquettes pro et sans TVA. Rien n'est supprimé. Ensuite, clique « 📧 Générer l'email » pour lui expliquer comment se connecter.
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button onclick="pCopyShopifyInfo()" style="flex:1;padding:12px;background:#e8c840;color:#111;border:none;border-radius:10px;font-weight:900;font-size:14px;cursor:pointer">📋 Copier les infos</button>
@@ -1956,8 +2012,6 @@ Rouget 9cm 14g x8"></textarea>
   </div>
 </div>
 
-<script src="magasins.js"></script>
-<script src="produits.js"></script>
 <script>
 // ── ENREGISTREMENT SERVICE WORKER (PWA OFFLINE) ──
 if('serviceWorker' in navigator){
@@ -2377,41 +2431,6 @@ if(!navigator.onLine){
 
 
 <!-- ═══════════════════════════════════════════
-     PAGE : BLOG RAVAGER
-═══════════════════════════════════════════ -->
-<style>
-#page-blog-ravager.active { display:flex !important; flex-direction:column; }
-#page-blog-ravager { padding:0 !important; max-width:100% !important; margin:0 !important; padding-bottom:0 !important; position:fixed !important; inset:0 !important; z-index:999; background:#0a0a0a; }
-</style>
-<section class="page" id="page-blog-ravager">
-  <div style="background:#111;border-bottom:1px solid #2a2a2a;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;">
-    <button onclick="window.showTab('shopify')" style="background:none;border:1px solid #333;color:#aaa;padding:6px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">← App</button>
-    <span style="font-size:13px;font-weight:900;letter-spacing:2px;color:#cc2200;">RAVAGER</span>
-    <span style="font-size:11px;color:#666;letter-spacing:1px;text-transform:uppercase;">Blog Creator</span>
-  </div>
-  <iframe
-    id="blog-creator-frame"
-    src="ravager-blog-creator.html"
-    style="width:100%;flex:1;border:none;display:block;min-height:0;"
-    title="RAVAGER Blog Creator"
-    loading="lazy"
-  ></iframe>
-</section>
-
-<script>
-(function(){
-  var _prev = window.showTab;
-  window.showTab = function(id) {
-    if (typeof _prev === 'function') _prev(id);
-    if (id === 'blog-ravager') {
-      var p = document.getElementById('page-blog-ravager');
-      if (p) p.style.display = 'flex';
-    }
-  };
-})();
-</script>
-
-<!-- ═══════════════════════════════════════════
      PAGE : SEO SHOPIFY
 ═══════════════════════════════════════════ -->
 <section class="page" id="page-seo-shopify" style="padding:24px;">
@@ -2509,5 +2528,65 @@ if(!navigator.onLine){
     </div>
   </div>
 </div>
+<script>
+// Au rechargement (F5 / « Actualiser »), on revient sur l'onglet où l'on travaillait, pas sur Facturation.
+(function(){
+  var KEY='fl_active_tab';
+  var prev=window.showTab;
+  window.showTab=function(n){
+    var r=(typeof prev==='function')?prev.apply(this,arguments):undefined;
+    try{ if(r!==false&&n) localStorage.setItem(KEY,String(n)); }catch(e){}
+    return r;
+  };
+  function restore(){
+    var s=null; try{ s=localStorage.getItem(KEY); }catch(e){}
+    if(!s||!document.getElementById('page-'+s)) return;
+    var cur=document.querySelector('.page.active');
+    if(cur&&cur.id==='page-'+s) return;
+    window.showTab(s);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',restore); else restore();
+
+  // ── Même ligne qu'avant l'actualisation ──
+  var SKEY='fl_scroll_v1';
+  var saved=null; try{ saved=JSON.parse(sessionStorage.getItem(SKEY)||'null'); }catch(e){}
+  var restoring=!!(saved&&saved.y>0);
+  function keyNow(){
+    var p=document.querySelector('.page.active'), k=p?p.id:'';
+    if(k==='page-facturation'){ try{ k+='|'+(localStorage.getItem('fl_factu_tab')||'magasin'); }catch(e){} }
+    return k;
+  }
+  function save(){
+    if(restoring) return;
+    try{ sessionStorage.setItem(SKEY,JSON.stringify({k:keyNow(),y:Math.round(window.scrollY)})); }catch(e){}
+  }
+  var timer=null;
+  window.addEventListener('scroll',function(){ if(timer) return; timer=setTimeout(function(){ timer=null; save(); },250); },{passive:true});
+  window.addEventListener('pagehide',save);
+  window.addEventListener('beforeunload',save);
+  if(restoring){
+    var done=function(){ restoring=false; };
+    ['wheel','touchstart','keydown','mousedown'].forEach(function(ev){ window.addEventListener(ev,done,{passive:true,once:true}); });
+    var tries=0, iv=setInterval(function(){
+      tries++;
+      if(!restoring||tries>55){ clearInterval(iv); restoring=false; return; }
+      if(keyNow()!==saved.k) return;
+      var max=document.documentElement.scrollHeight-window.innerHeight;
+      window.scrollTo(0,Math.min(saved.y,Math.max(0,max)));
+      if(max>=saved.y-2&&Math.abs(window.scrollY-saved.y)<3&&tries>3){ clearInterval(iv); restoring=false; }
+    },150);
+  }
+
+  // Le bouton « Actualiser » / « Rafraîchir depuis le serveur » ne doit pas remonter la page.
+  ['renderHistorique','renderClientCards'].forEach(function(n){
+    var f=window[n]; if(typeof f!=='function') return;
+    window[n]=function(){
+      var y=window.scrollY, r=f.apply(this,arguments);
+      if(y>0&&Math.abs(window.scrollY-y)>2) window.scrollTo(0,y);
+      return r;
+    };
+  });
+})();
+</script>
 </body>
 </html>

@@ -2,10 +2,13 @@
 // Gère : PDF, image photo, SMS copié, email texte, bon de commande
 // Vercel : OPENAI_API_KEY dans Settings > Environment Variables
 
+const { requireUser } = require('./_lib/auth');
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'Méthode non autorisée' });
   }
+  if (!(await requireUser(req, res))) return;
 
   try {
     const apiKey = process.env.OPENAI_API_KEY;

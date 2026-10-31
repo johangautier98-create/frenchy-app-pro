@@ -1,0 +1,25 @@
+# Liste blanche : seuls ces fichiers partent en ligne. Tout le reste (clés, notes, sauvegardes) reste sur le PC.
+/*
+!/index.html
+!/MOBILE_CAPTURE_FACTURE.html
+!/app.js
+!/catalogue.js
+!/comptes-pro.js
+!/comptabilite.js
+!/fl-securite.js
+!/sw.js
+!/style.css
+!/comptabilite.css
+!/manifest.json
+!/logo-app.png
+!/package.json
+!/vercel.json
+!/api
+/api/*
+!/api/analyse-facture.js
+!/api/analyse-commande.js
+!/api/shopify-orders.js
+!/api/shopify-client.js
+!/api/_lib
+/api/_lib/*
+!/api/_lib/auth.js

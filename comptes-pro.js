@@ -119,7 +119,12 @@ function pExtract(txt){
 }
 
 // Email HTML
-function buildEmailHtml(nom,prenom,login,pwd,notes){
+function buildEmailHtml(nom,prenom,login,pwd,notes,sepaLien){
+  var sepaBlock=sepaLien?('<table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f2ff;border:1px solid #d6d4ff;border-radius:8px;margin-bottom:24px;"><tr><td style="padding:16px 20px;">'
+    +'<div style="font-size:12px;font-weight:900;color:#3d36b8;margin-bottom:8px;">🏦 PAIEMENT DIFFÉRÉ — MANDAT SEPA</div>'
+    +'<p style="color:#3d36b8;font-size:13px;line-height:1.6;margin:0 0 14px;">Pour régler vos factures par prélèvement, activez votre compte en ligne (2 minutes, page sécurisée de notre partenaire <strong>Stripe</strong>) : frais d’activation de <strong>1 €</strong>, choisissez <strong>« Prélèvement SEPA »</strong> comme moyen de paiement et indiquez le nom de votre société et votre IBAN. Votre mandat est alors enregistré pour vos prochaines commandes.</p>'
+    +'<div style="text-align:center;"><a href="'+sepaLien.replace(/"/g,'&quot;')+'" style="display:inline-block;background:#635bff;color:#fff;font-size:14px;font-weight:900;padding:12px 30px;border-radius:10px;text-decoration:none;">✍️ Activer mon compte et signer mon mandat SEPA</a></div>'
+    +'</td></tr></table>'):'';
   var condBlock=notes?('<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f8f0;border:1px solid #c8e6c9;border-radius:8px;margin-bottom:24px;"><tr><td style="padding:16px 20px;"><div style="font-size:11px;font-weight:900;color:#2e7d32;text-transform:uppercase;margin-bottom:8px;">\u2705 Vos conditions commerciales</div><p style="color:#1a5e20;font-size:13px;line-height:1.6;margin:0;">'+notes.replace(/&/g,'&amp;').replace(/\n/g,'<br>')+'</p></td></tr></table>'):'';
   return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head>'
     +'<body style="margin:0;padding:0;background:#f4f4f0;font-family:Helvetica Neue,Arial,sans-serif;">'
@@ -129,21 +134,21 @@ function buildEmailHtml(nom,prenom,login,pwd,notes){
     +'<tr><td style="background:#e8c840;padding:10px 40px;text-align:center;"><div style="color:#1a1a1a;font-size:12px;font-weight:900;">\u2705 VOTRE COMPTE PROFESSIONNEL EST CR\u00c9\u00c9</div></td></tr>'
     +'<tr><td style="padding:32px 40px;">'
     +'<p style="color:#1a1a1a;font-size:16px;line-height:1.6;margin:0 0 18px;">Bonjour <strong>'+prenom+'</strong>,</p>'
-    +'<p style="color:#555;font-size:14px;line-height:1.7;margin:0 0 28px;">Nous avons le plaisir de vous confirmer l\'ouverture de votre compte professionnel <strong>Frenchy Leurres</strong>. Votre compte est actuellement <strong>en cours de validation</strong>.</p>'
+    +'<p style="color:#555;font-size:14px;line-height:1.7;margin:0 0 28px;">Nous avons le plaisir de vous confirmer l\'ouverture de votre compte professionnel <strong>Frenchy Leurres</strong>. </p>'
     +'<table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f8f4;border:2px solid #e8c840;border-radius:12px;margin-bottom:24px;"><tr><td style="padding:20px 24px;">'
-    +'<div style="font-size:10px;font-weight:900;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">Vos identifiants de connexion</div>'
+    +'<div style="font-size:10px;font-weight:900;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">Votre compte</div>'
     +'<table width="100%" cellpadding="0" cellspacing="0">'
     +'<tr><td style="padding:8px 0;border-bottom:1px solid #e8e6e0;"><span style="color:#888;font-size:13px;">Enseigne</span></td><td style="padding:8px 0;border-bottom:1px solid #e8e6e0;text-align:right;"><strong style="color:#1a1a1a;font-size:14px;">'+nom+'</strong></td></tr>'
-    +'<tr><td style="padding:8px 0;border-bottom:1px solid #e8e6e0;"><span style="color:#888;font-size:13px;">Identifiant</span></td><td style="padding:8px 0;border-bottom:1px solid #e8e6e0;text-align:right;"><strong style="color:#1a1a1a;font-size:13px;">'+login+'</strong></td></tr>'
-    +'<tr><td style="padding:10px 0;"><span style="color:#888;font-size:13px;">Mot de passe</span></td><td style="padding:10px 0;text-align:right;"><strong style="color:#e8c840;font-size:17px;font-family:monospace;background:#1a1a1a;padding:5px 12px;border-radius:6px;">'+pwd+'</strong></td></tr>'
+    +'<tr><td style="padding:10px 0;"><span style="color:#888;font-size:13px;">Adresse email de connexion</span></td><td style="padding:10px 0;text-align:right;"><strong style="color:#1a1a1a;font-size:13px;">'+login+'</strong></td></tr>'
     +'</table></td></tr></table>'
-    +'<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;"><tr><td align="center"><a href="https://www.frenchyleurres.fr/account/login" style="display:inline-block;background:#1a1a1a;color:#e8c840;font-size:15px;font-weight:900;padding:15px 40px;border-radius:10px;text-decoration:none;">\ud83d\udd10 Acc\u00e9der \u00e0 mon compte</a></td></tr></table>'
     +'<table width="100%" cellpadding="0" cellspacing="0" style="background:#fff8e1;border-left:4px solid #e8c840;border-radius:0 8px 8px 0;margin-bottom:24px;"><tr><td style="padding:16px 20px;">'
-    +'<div style="font-size:12px;font-weight:900;color:#7a5800;margin-bottom:8px;">\ud83d\udccb PROCHAINE \u00c9TAPE \u2014 MANDAT SEPA</div>'
-    +'<p style="color:#7a5800;font-size:13px;line-height:1.6;margin:0;">Pour activer le <strong>paiement diff\u00e9r\u00e9</strong>, vous allez recevoir un email de notre partenaire <strong>Stripe</strong> vous demandant de signer un mandat SEPA.<br><br>\u26a0\ufe0f <strong>Merci de signer ce mandat d\u00e8s r\u00e9ception.</strong></p>'
+    +'<div style="font-size:12px;font-weight:900;color:#7a5800;margin-bottom:8px;">\ud83d\udd10 COMMENT VOUS CONNECTER (pas de mot de passe)</div>'
+    +'<p style="color:#7a5800;font-size:13px;line-height:1.7;margin:0;">1. Cliquez sur le bouton ci-dessous.<br>2. Tapez votre adresse email : <strong>'+login+'</strong><br>3. Vous recevez aussit\u00f4t un <strong>code \u00e0 6 chiffres</strong> par email : recopiez-le, c\u2019est tout.<br><br>\u00c0 chaque connexion, un nouveau code vous est envoy\u00e9. Pensez \u00e0 regarder dans vos courriers ind\u00e9sirables.</p>'
     +'</td></tr></table>'
+    +'<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;"><tr><td align="center"><a href="https://www.frenchyleurres.fr/account/login" style="display:inline-block;background:#1a1a1a;color:#e8c840;font-size:15px;font-weight:900;padding:15px 40px;border-radius:10px;text-decoration:none;">\ud83d\udd10 Acc\u00e9der \u00e0 mon compte</a></td></tr></table>'
+    +sepaBlock
     +condBlock
-    +'<p style="color:#888;font-size:13px;line-height:1.6;margin:0;">Une fois valid\u00e9, vos <strong>tarifs professionnels</strong> seront visibles automatiquement.</p>'
+    +'<p style="color:#888;font-size:13px;line-height:1.6;margin:0;">Une fois connect\u00e9, vos <strong>tarifs professionnels</strong> s\u2019affichent automatiquement.</p>'
     +'</td></tr>'
     +'<tr><td style="background:#f8f8f4;border-top:1px solid #e8e6e0;padding:24px 40px;">'
     +'<table width="100%" cellpadding="0" cellspacing="0"><tr>'
@@ -165,13 +170,14 @@ window.pGenEmail=function(){
   // Sauvegarder le mdp généré dans le champ
   if(!gv('proLoginPass'))sv('proLoginPass',pwd);
   var prenom=resp?resp.split(' ')[0]:(nom?nom.split(' ')[0]:'');
-  var htmlContent=buildEmailHtml(nom,prenom,login,pwd,notes);
+  var sepa=(window._pSepaLien&&window._pSepaEmail===email.toLowerCase())?window._pSepaLien:'';
+  var htmlContent=buildEmailHtml(nom,prenom,login,pwd,notes,sepa);
   window._pEmailHtml=htmlContent;window._pEmailTo=email;
-  window._pEmailSubject='Vos identifiants de connexion Frenchy Leurres \u2705';
+  window._pEmailSubject='Votre compte professionnel Frenchy Leurres est pr\u00eat \u2705';
   var modal=document.getElementById('modalEmail');
   if(modal){
     var meta=document.getElementById('emailModalMeta');
-    if(meta)meta.textContent='\u00c0 : '+email+'   \u2022   Login : '+login+'   \u2022   MDP : '+pwd;
+    if(meta)meta.textContent='\u00c0 : '+email+'   \u2022   Connexion par code envoy\u00e9 par Shopify (sans mot de passe)';
     var frame=document.getElementById('emailPreviewFrame');if(frame)frame.srcdoc=htmlContent;
     modal.style.display='';
   }
@@ -207,7 +213,89 @@ window.pOpenShopify=function(){
   if(notes)lines.push('','Notes : '+notes);
   window._shopifyInfoText=lines.join('\n');
   var el=document.getElementById('shopifyClientInfo');if(el)el.textContent=window._shopifyInfoText;
+  var out=document.getElementById('shopifyPushResult');if(out){out.style.display='none';out.textContent='';}
   var modal=document.getElementById('modalShopify');if(modal)modal.style.display='';
+};
+window.pShopifyPush=function(){
+  var email=gv('proEmail');
+  if(!email){pToast('Email du client manquant','#c62828','#fff');return;}
+  var btn=document.getElementById('shopifyPushBtn'),out=document.getElementById('shopifyPushResult');
+  function msg(t,ok){if(out){out.style.display='block';out.style.color=ok?'#82f39a':'#ff8a80';out.textContent=t;}}
+  if(btn){btn.disabled=true;btn.textContent='⏳ Envoi à Shopify...';}
+  fetch('/api/shopify-client',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    nom:gv('proNom'),responsable:gv('proResponsable'),email:email,tel:gv('proTel'),
+    adresse:gv('proAdresse'),siret:gv('proSiret'),type:gv('proTypeSelect')||'pro'})})
+  .then(function(r){return r.json().catch(function(){return{ok:false,error:'Réponse illisible ('+r.status+')'};});})
+  .then(function(j){
+    if(!j.ok){msg('❌ '+(j.error||'Erreur inconnue'),false);return;}
+    msg((j.action==='cree'?'✅ Client créé dans Shopify':'✅ Client déjà dans Shopify : mis à jour')+' (n° '+j.id+') — étiquettes : '+j.tags+' — sans TVA.',true);
+    pToast('✅ Shopify à jour','#2e7d32','#fff');
+    var id=_pid||gv('proEditId'),s=psb();
+    if(s&&id&&!String(id).startsWith('local_')&&j.id){
+      s.from('pro_clients').update({shopify_customer_id:String(j.id)}).eq('id',id).then(function(){window.pLoadList(true);});
+    }
+  })
+  .catch(function(e){msg('❌ Shopify injoignable : '+e.message,false);})
+  .then(function(){if(btn){btn.disabled=false;btn.textContent='🛒 Créer / mettre à jour dans Shopify';}});
+};
+// Lien de paiement Stripe « Activation compte professionnel » (1 €, créé par Johan le 11 mai 2026) :
+// le moyen de paiement choisi (prélèvement SEPA) est enregistré pour les factures suivantes.
+var STRIPE_ACTIVATION_LINK='https://buy.stripe.com/9B6dR97866yx4kld1K9R600';
+function pSepaLienPour(email){
+  var ref=String(_pid||gv('proEditId')||'').replace(/[^A-Za-z0-9_-]/g,'').slice(0,200);
+  return STRIPE_ACTIVATION_LINK+'?prefilled_email='+encodeURIComponent(email.toLowerCase())+(ref?'&client_reference_id='+encodeURIComponent(ref):'');
+}
+function buildSepaEmailHtml(nom,prenom,sepaLien){
+  var esc=function(s){return String(s||'').replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+  return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head>'
+    +'<body style="margin:0;padding:0;background:#f4f4f0;font-family:Helvetica Neue,Arial,sans-serif;">'
+    +'<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f0;padding:32px 16px;"><tr><td align="center">'
+    +'<table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10);">'
+    +'<tr><td style="background:#1a1a1a;padding:28px 40px;text-align:center;"><div style="font-size:36px;margin-bottom:8px;">🎣</div><div style="color:#e8c840;font-size:22px;font-weight:900;letter-spacing:1px;">FRENCHY LEURRES</div><div style="color:#666;font-size:12px;margin-top:4px;letter-spacing:2px;text-transform:uppercase;">Leurres artisanaux — Port-de-Bouc</div></td></tr>'
+    +'<tr><td style="background:#635bff;padding:10px 40px;text-align:center;"><div style="color:#fff;font-size:12px;font-weight:900;">🏦 VOTRE MANDAT DE PRÉLÈVEMENT SEPA</div></td></tr>'
+    +'<tr><td style="padding:32px 40px;">'
+    +'<p style="color:#1a1a1a;font-size:16px;line-height:1.6;margin:0 0 16px;">Bonjour'+(prenom?' <strong>'+esc(prenom)+'</strong>':'')+',</p>'
+    +'<p style="color:#555;font-size:14px;line-height:1.7;margin:0 0 20px;">Pour continuer à travailler ensemble sur vos commandes <strong>Frenchy Leurres</strong>'+(nom?' ('+esc(nom)+')':'')+', je vous propose de régler vos factures <strong>par prélèvement SEPA</strong>, à 1, 2, 3 ou 4 semaines selon votre commande. Il suffit d’enregistrer une seule fois votre mandat, en ligne.</p>'
+    +'<table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f2ff;border:1px solid #d6d4ff;border-radius:8px;margin-bottom:24px;"><tr><td style="padding:16px 20px;">'
+    +'<div style="font-size:12px;font-weight:900;color:#3d36b8;margin-bottom:8px;">COMMENT FAIRE (2 minutes)</div>'
+    +'<p style="color:#3d36b8;font-size:13px;line-height:1.8;margin:0;">1. Cliquez sur le bouton ci-dessous.<br>2. Réglez les frais d’activation de <strong>1 €</strong>.<br>3. Choisissez <strong>« Prélèvement SEPA »</strong> comme moyen de paiement.<br>4. Indiquez le <strong>nom de votre société</strong> et votre <strong>IBAN</strong>.</p>'
+    +'</td></tr></table>'
+    +'<div style="text-align:center;margin-bottom:24px;"><a href="'+esc(sepaLien)+'" style="display:inline-block;background:#635bff;color:#fff;font-size:15px;font-weight:900;padding:14px 36px;border-radius:10px;text-decoration:none;">✍️ Enregistrer mon mandat SEPA</a></div>'
+    +'<p style="color:#888;font-size:13px;line-height:1.6;margin:0;">La page est sécurisée par notre partenaire <strong>Stripe</strong>. Une question ? Répondez simplement à ce mail ou appelez-moi.</p>'
+    +'</td></tr>'
+    +'<tr><td style="background:#f8f8f4;border-top:1px solid #e8e6e0;padding:22px 40px;">'
+    +'<div style="font-size:14px;font-weight:900;color:#1a1a1a;margin-bottom:3px;">Mr Gautier Johan</div>'
+    +'<div style="font-size:12px;color:#555;margin-bottom:8px;">GAUTIER FISHING — FRENCHY LEURRES</div>'
+    +'<div style="font-size:12px;color:#888;line-height:1.8;">📍 8, chemin campagne roque — 13110 Port-de-Bouc<br>📞 07 83 21 07 58<br>✉ gautierfishing@gmail.com<br>🌐 www.frenchyleurres.fr<br>SIRET : 48359538500038</div></td></tr>'
+    +'</table></td></tr></table></body></html>';
+}
+window.pGenEmailSepa=function(){
+  var nom=gv('proNom'),email=gv('proEmail'),resp=gv('proResponsable');
+  if(!email){pToast('Email du magasin manquant','#c62828','#fff');return;}
+  var prenom=resp?resp.split(' ')[0]:'';
+  var html=buildSepaEmailHtml(nom,prenom,pSepaLienPour(email));
+  window._pEmailHtml=html;window._pEmailTo=email;
+  window._pEmailSubject='Frenchy Leurres — votre mandat de prélèvement SEPA';
+  var modal=document.getElementById('modalEmail');
+  if(modal){
+    var meta=document.getElementById('emailModalMeta');
+    if(meta)meta.textContent='À : '+email+'   •   Mail « mandat SEPA seul » (sans connexion boutique)';
+    var frame=document.getElementById('emailPreviewFrame');if(frame)frame.srcdoc=html;
+    modal.style.display='';
+  }
+};
+window.pStripeSepa=function(){
+  var email=gv('proEmail');
+  var out=document.getElementById('proSepaResult');
+  function msg(h){if(out){out.style.display='block';out.innerHTML=h;}}
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  if(!email){pToast('Email du client manquant','#c62828','#fff');return;}
+  var lien=pSepaLienPour(email);
+  window._pSepaLien=lien;window._pSepaEmail=email.toLowerCase();
+  msg('<b>✅ Lien d’activation prêt</b> (1 €, mandat SEPA enregistré par Stripe, email du client pré-rempli) :<br>'
+    +'<span style="color:#fff">'+esc(lien)+'</span><br>'
+    +'<button type="button" class="cpro-btn cpro-gold" style="margin-top:8px;padding:6px 12px;font-size:12px" onclick="navigator.clipboard.writeText(window._pSepaLien).then(function(){window._pToast(\'📋 Lien copié\',\'#2e7d32\',\'#fff\');})">📋 Copier le lien</button> '
+    +'<span style="color:#a5a0ff">→ Clique ensuite « 📧 Générer l’email » : le bouton « Activer mon compte et signer mon mandat SEPA » y sera ajouté.</span>');
 };
 window.pCopyShopifyInfo=function(){
   if(!window._shopifyInfoText)return;
@@ -308,7 +396,7 @@ window._pSel=function(id){
     var ty=document.getElementById('proTypeSelect');if(ty)ty.value=c.type_client||'pro';
     se2('proFormTitle','\u270f\ufe0f '+(c.nom_magasin||'Compte pro'));
     show('proResetBtn');show('proActPanel');se2('proActTitle','Actions \u2014 '+(c.nom_magasin||''));
-    hide('proEmailPanel');
+    hide('proEmailPanel');hide('proSepaResult');
     proRender(_proCacheV32.length?_proCacheV32:proGetLocal());
   }
   var local=(_proCacheV32.concat(proGetLocal())).find(function(x){return String(x.id)===String(id);});

@@ -1,9 +1,5 @@
 {
   "name": "frenchy-leurres-app-pro",
-  "version": "46.0.0",
-  "private": true,
-  "dependencies": {
-    "openai": "^4.47.1",
-    "nodemailer": "^6.9.14"
-  }
+  "version": "47.0.0",
+  "private": true
 }

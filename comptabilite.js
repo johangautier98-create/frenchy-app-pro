@@ -181,7 +181,7 @@ function renderDashList(){
     var ac=amtClass(d.type_doc);
     var sign=amtSign(d.type_doc);
     var sid=String(d.id||'').replace(/'/g,'');
-    var fileLink=d.fichier_url?'<a href="'+esc(d.fichier_url)+'" target="_blank" style="color:#e8c840;font-size:11px;text-decoration:none;font-weight:700;margin-left:8px">📎 Voir</a>':'';
+    var fileLink=(d.fichier_path||d.fichier_url)?'<a href="#" class="fl-file-link" data-path="'+esc(d.fichier_path)+'" data-url="'+esc(d.fichier_url)+'" style="color:#e8c840;font-size:11px;text-decoration:none;font-weight:700;margin-left:8px">📎 Voir</a>':'';
     return '<div class="fc-dash-row" style="display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px">'
       +'<div>'
       +'<div class="fc-dash-name">'+esc(d.fournisseur)+fileLink+'</div>'
@@ -309,8 +309,8 @@ function renderDocList(listId, arr, mode){
     var ac=amtClass(d.type_doc);
     var sign=(mode==='rec'?'+':'-');
     var fileHtml='';
-    if(d.fichier_url){
-      fileHtml='<a class="fc-doc-link" href="'+esc(d.fichier_url)+'" target="_blank">Voir PDF</a>';
+    if(d.fichier_path||d.fichier_url){
+      fileHtml='<a class="fc-doc-link fl-file-link" href="#" data-path="'+esc(d.fichier_path)+'" data-url="'+esc(d.fichier_url)+'">Voir PDF</a>';
     } else if(d.fichier_nom){
       fileHtml='<span style="color:#444;font-size:11px">📎 '+esc(d.fichier_nom)+'</span>';
     }
@@ -344,8 +344,8 @@ window.fcEditDoc=function(id){
   if(!hidden){hidden=document.createElement('input');hidden.type='hidden';hidden.id='cEditId';
     var f=$('fc-page-saisie');if(f)f.appendChild(hidden);}
   hidden.value=id;
-  if(d.fichier_url&&$('cFileName')){
-    $('cFileName').innerHTML='<a href="'+esc(d.fichier_url)+'" target="_blank" style="color:#e8c840;font-weight:700">📎 Fichier existant</a> — importez un nouveau pour remplacer';
+  if((d.fichier_path||d.fichier_url)&&$('cFileName')){
+    $('cFileName').innerHTML='<a href="#" class="fl-file-link" data-path="'+esc(d.fichier_path)+'" data-url="'+esc(d.fichier_url)+'" style="color:#e8c840;font-weight:700">📎 Fichier existant</a> — importez un nouveau pour remplacer';
   }
   toast('\u270f\ufe0f Mode edition — modifie puis clique Enregistrer.');
 };
@@ -360,10 +360,27 @@ async function uploadFile(file,row){
   try{
     var up=await sb().storage.from(BUCKET).upload(safe,file,{cacheControl:'3600',upsert:false,contentType:file.type||undefined});
     if(up.error){console.warn('upload error',up.error);return{url:'',path:''}}
-    var pub=sb().storage.from(BUCKET).getPublicUrl(safe);
-    return{url:(pub&&pub.data&&pub.data.publicUrl)||'',path:safe};
+    return{url:'',path:safe};
   }catch(e){console.warn(e);return{url:'',path:''}}
 }
+
+// Le dossier de justificatifs est privé : on ouvre chaque fichier avec un lien temporaire (5 min).
+async function openComptaFile(path,url){
+  try{
+    if(!path&&url){var m=/\/object\/(?:public|sign|authenticated)\/compta-factures\/([^?]+)/.exec(url);if(m)path=decodeURIComponent(m[1]);}
+    if(path&&sb()){
+      var r=await sb().storage.from(BUCKET).createSignedUrl(path,300);
+      if(r&&r.data&&r.data.signedUrl){window.open(r.data.signedUrl,'_blank','noopener');return;}
+    }
+    if(url)window.open(url,'_blank','noopener');
+  }catch(e){alert('Impossible d’ouvrir le fichier : '+(e&&e.message||e));}
+}
+document.addEventListener('click',function(ev){
+  var a=ev.target&&ev.target.closest?ev.target.closest('a.fl-file-link'):null;
+  if(!a)return;
+  ev.preventDefault();
+  openComptaFile(a.getAttribute('data-path')||'',a.getAttribute('data-url')||'');
+});
 
 async function insertSb(row){
   var send=Object.assign({},row); delete send.id; delete send.synced;

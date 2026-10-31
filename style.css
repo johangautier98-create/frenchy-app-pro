@@ -1017,7 +1017,7 @@ textarea{resize:vertical;min-height:90px;line-height:1.5;}
 /* Page facturation plus large sur ordinateur */
 #page-facturation{
   max-width: 1380px !important;
-  width: calc(100vw - 32px) !important;
+  width: 100% !important;
   margin-left: auto !important;
   margin-right: auto !important;
   padding-left: 8px !important;
@@ -1051,7 +1051,7 @@ textarea{resize:vertical;min-height:90px;line-height:1.5;}
   border-collapse: collapse !important;
 }
 
-/* Colonnes Cabesto : flèches(4%) | réf PE(12%) | désignation(46%) | qté(8%) | PU(11%) | montant(14%) | suppr(5%) */
+/* Colonnes Cabesto : flèches(4%) | réf PE(12%) | désignation(38%) | qté(8%) | PU(10%) | PVP(10%) | montant(13%) | suppr(5%) */
 #cab-lines .factu-table th:nth-child(1),
 #cab-lines .factu-table td:nth-child(1){
   width: 4% !important;
@@ -1066,7 +1066,7 @@ textarea{resize:vertical;min-height:90px;line-height:1.5;}
 
 #cab-lines .factu-table th:nth-child(3),
 #cab-lines .factu-table td:nth-child(3){
-  width: 46% !important;
+  width: 38% !important;
   text-align: left !important;
 }
 
@@ -1077,19 +1077,21 @@ textarea{resize:vertical;min-height:90px;line-height:1.5;}
 }
 
 #cab-lines .factu-table th:nth-child(5),
-#cab-lines .factu-table td:nth-child(5){
-  width: 11% !important;
-  text-align: right !important;
-}
-
+#cab-lines .factu-table td:nth-child(5),
 #cab-lines .factu-table th:nth-child(6),
 #cab-lines .factu-table td:nth-child(6){
-  width: 14% !important;
+  width: 10% !important;
   text-align: right !important;
 }
 
 #cab-lines .factu-table th:nth-child(7),
 #cab-lines .factu-table td:nth-child(7){
+  width: 13% !important;
+  text-align: right !important;
+}
+
+#cab-lines .factu-table th:nth-child(8),
+#cab-lines .factu-table td:nth-child(8){
   width: 5% !important;
   text-align: center !important;
 }
@@ -1133,9 +1135,17 @@ textarea{resize:vertical;min-height:90px;line-height:1.5;}
 
 /* Quantité et prix bien lisibles */
 #cab-lines .factu-table td:nth-child(4) input,
-#cab-lines .factu-table td:nth-child(5) input{
+#cab-lines .factu-table td:nth-child(5) input,
+#cab-lines .factu-table td:nth-child(6) input{
   font-size: 14px !important;
   font-weight: 800 !important;
+}
+
+/* Champs de chiffres (quantités, prix, PVP) : peu de marge intérieure pour que le nombre entier reste lisible */
+#cab-lines .factu-table input[type=number],
+#mag-lines .factu-table input[type=number]{
+  padding-left: 2px !important;
+  padding-right: 2px !important;
 }
 
 /* Croix supprimer dans le tableau, pas dehors */
@@ -1163,8 +1173,8 @@ textarea{resize:vertical;min-height:90px;line-height:1.5;}
 /* Sur téléphone/tablette : carte pleine largeur + scroll horizontal propre */
 @media (max-width: 900px){
   #page-facturation{
-    width: 100vw !important;
-    max-width: 100vw !important;
+    width: 100% !important;
+    max-width: 100% !important;
     padding-left: 6px !important;
     padding-right: 6px !important;
   }
@@ -1264,3 +1274,43 @@ textarea{resize:vertical;min-height:90px;line-height:1.5;}
   .factu-nav-btn{min-width:60px;font-size:10px;padding:8px 4px;}
   #app-header h1{font-size:13px;}
 }
+
+/* ── Catalogue rangé : catégories → modèles → tailles → grammages ── */
+#cat-grid.cat-grouped{display:block;}
+.cat-cats{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 10px;}
+.cat-tab{padding:8px 15px;border-radius:999px;border:1.5px solid var(--border);background:#fff;color:var(--text);font-weight:800;font-size:13.5px;cursor:pointer;transition:all .1s;}
+.cat-tab b{color:var(--muted);margin-left:2px;font-weight:800;}
+.cat-tab.active{background:var(--primary);border-color:var(--primary);color:#fff;}
+.cat-tab.active b{color:#fff;opacity:.8;}
+.filter-chip b{font-weight:800;opacity:.6;margin-left:2px;}
+.cat-filters2{display:flex;flex-wrap:wrap;gap:8px;margin:-4px 0 4px;}
+.cat-filters2 select{width:auto!important;min-width:200px;max-width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;font-weight:600;background:#fff;color:var(--text);}
+.cat-cat-title{font-size:14px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:22px 4px 10px;}
+.cat-model{background:#fff;border:1.5px solid var(--border);border-radius:16px;padding:18px 20px 6px;margin-bottom:18px;box-shadow:0 2px 8px rgba(0,0,0,.04);}
+.cat-model-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 12px;}
+.cat-model-head h3{margin:0;font-size:22px;font-weight:900;color:var(--primary);}
+.cat-model-head span{font-size:13px;color:var(--muted);font-weight:600;}
+.cat-size-head{display:flex;align-items:center;gap:14px;margin:20px 0 12px;}
+.cat-size-pill{display:inline-block;background:#1565c0;color:#fff;font-size:21px;font-weight:900;padding:7px 20px;border-radius:999px;box-shadow:0 3px 8px rgba(21,101,192,.35);letter-spacing:.01em;white-space:nowrap;}
+.cat-size-head hr{flex:1;border:none;border-top:2px solid #c8dcf3;margin:0;}
+.cat-gram-head{display:flex;align-items:center;gap:12px;margin:4px 0 12px 6px;}
+.cat-gram-pill{display:inline-block;background:#ef6c00;color:#fff;font-size:18px;font-weight:900;padding:6px 16px;border-radius:999px;box-shadow:0 3px 8px rgba(239,108,0,.3);white-space:nowrap;}
+.cat-gram-head .cat-gram-count{font-size:14px;font-weight:700;color:var(--muted);}
+.cat-subgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin:0 0 18px;}
+.cat-card.cat-card-new{outline:3px solid var(--accent);outline-offset:3px;}
+.cat-badge.cat-badge-size{background:#1565c0;color:#fff;font-size:12.5px;font-weight:800;}
+.cat-badge.cat-badge-gram{background:#ef6c00;color:#fff;font-size:12.5px;font-weight:800;}
+@media(max-width:600px){.cat-size-pill{font-size:18px;padding:6px 16px;}.cat-gram-pill{font-size:16px;}.cat-model{padding:14px 12px 4px;}.cat-subgrid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));}}
+
+/* ── Aperçu des étiquettes de la file (page Impression) ── */
+.fl-prev{margin:0 0 10px;}
+.fl-prev-head{font-size:13.5px;font-weight:800;color:var(--text);margin:4px 0 10px;}
+.fl-prev-head small{font-weight:600;color:var(--muted);}
+.fl-prev-grid{display:flex;flex-wrap:wrap;gap:14px;}
+.fl-prev-item{display:flex;flex-direction:column;gap:6px;max-width:100%;}
+.fl-prev-frame{background:#fff;outline:1px dashed #9aa5b1;outline-offset:2px;border-radius:2px;overflow:hidden;max-width:100%;}
+.fl-prev-round{border-radius:50%;}
+.fl-prev-cap{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;max-width:260px;}
+.fl-prev-cap b{color:var(--text);font-family:monospace;}
+.fl-prev-warn{color:#b45309;font-weight:700;}
+.fl-prev-ok{color:#2e7d32;font-weight:700;}

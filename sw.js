@@ -1,5 +1,5 @@
 // Service Worker — Frenchy Leurres App Pro (PWA Offline)
-var CACHE_NAME = 'frenchy-pwa-v2';
+var CACHE_NAME = 'frenchy-pwa-v5';
 var STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -8,6 +8,7 @@ var STATIC_ASSETS = [
   '/catalogue.js',
   '/comptes-pro.js',
   '/comptabilite.js',
+  '/fl-securite.js',
   '/logo-app.png',
   '/manifest.json'
 ];
@@ -45,6 +46,9 @@ self.addEventListener('fetch', function(e) {
 
   // Laisser passer les appels Supabase API (gérés offline dans l'app)
   if(url.indexOf('supabase.co') !== -1) return;
+
+  // Ne jamais mettre en cache les réponses du serveur (/api) : elles contiennent des données personnelles
+  if(url.indexOf('/api/') !== -1) return;
 
   // Laisser passer les requêtes non-GET
   if(e.request.method !== 'GET') return;
