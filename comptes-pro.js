@@ -163,9 +163,12 @@ function buildEmailHtml(nom,prenom,login,pwd,notes,sepaLien){
 
 window.pGenEmail=function(){
   var nom=gv('proNom'),email=gv('proEmail'),resp=gv('proResponsable'),notes=gv('proNotes');
-  var login=gv('proLoginId')||email,pwd=gv('proLoginPass')||pGenPwd();
+  // Chrome préremplit ce champ avec l'adresse de Johan : seule une vraie saisie remplace l'email du client
+  var loginField=document.getElementById('proLoginId');
+  var login=(loginField&&loginField.dataset.manual&&gv('proLoginId'))||email,pwd=gv('proLoginPass')||pGenPwd();
   if(!email){pToast('Email du client manquant','#c62828','#fff');return;}
   if(!login)login=email;
+  sv('proLoginId',login);
   if(!pwd)pwd=pGenPwd();
   // Sauvegarder le mdp généré dans le champ
   if(!gv('proLoginPass'))sv('proLoginPass',pwd);
@@ -192,7 +195,8 @@ window.pCopyEmailHtml=function(){
 };
 window.pOpenGmail=function(){
   if(!window._pEmailTo){pToast('G\u00e9n\u00e8re d\'abord un email','#c62828','#fff');return;}
-  window.open('https://mail.google.com/mail/?view=cm&to='+encodeURIComponent(window._pEmailTo)+'&su='+encodeURIComponent(window._pEmailSubject||'Frenchy Leurres'),'_blank');
+  // Le premier compte de Chrome est le Gmail perso : on désigne le compte pro explicitement
+  window.open('https://mail.google.com/mail/?authuser='+encodeURIComponent('gautierfishing@gmail.com')+'&view=cm&to='+encodeURIComponent(window._pEmailTo)+'&su='+encodeURIComponent(window._pEmailSubject||'Frenchy Leurres'),'_blank');
 };
 window.pCopyEmail=window.pCopyEmailHtml;
 
@@ -390,6 +394,7 @@ window._pSel=function(id){
     if(!c)return;_pid=id;
     sv('proEditId',c.id);sv('proNom',c.nom_magasin);sv('proResponsable',c.nom_responsable);
     sv('proEmail',c.email);sv('proLoginId',c.email||'');sv('proLoginPass','');
+    var lf=document.getElementById('proLoginId');if(lf)delete lf.dataset.manual;
     sv('proTel',c.telephone);sv('proSiret',c.siret);sv('proAdresse',c.adresse);
     sv('proTva',c.tva);sv('proNotes',c.notes);
     var st=document.getElementById('proStatutSelect');if(st)st.value=c.statut||'en_attente';
@@ -454,6 +459,7 @@ window.pEditMode=function(){var e=document.getElementById('proNom');if(e)e.focus
 window.pResetForm=function(){
   ['proEditId','proNom','proResponsable','proEmail','proLoginId','proLoginPass','proTel','proSiret','proAdresse','proTva','proNotes']
     .forEach(function(id){var e=document.getElementById(id);if(e)e.value='';});
+  var lf=document.getElementById('proLoginId');if(lf)delete lf.dataset.manual;
   var st=document.getElementById('proStatutSelect');if(st)st.value='en_attente';
   var ty=document.getElementById('proTypeSelect');if(ty)ty.value='pro';
   se2('proFormTitle','\u2795 Nouveau compte pro');

@@ -1254,7 +1254,7 @@ Rouget 9cm 14g x8"></textarea>
 </div>
             <div class="cpro-field">
               <label>Identifiant connexion</label>
-              <input id="proLoginId" type="email" placeholder="souvent l'email" oninput="this.dataset.manual='1'">
+              <input id="proLoginId" type="email" placeholder="souvent l'email" autocomplete="off" oninput="if(/^(insert(Text|CompositionText|FromPaste|FromDrop)|delete)/.test(event.inputType||''))this.dataset.manual='1'">
             </div>
             <div class="cpro-field">
               <label>Mot de passe à envoyer</label>
@@ -1932,7 +1932,7 @@ Rouget 9cm 14g x8"></textarea>
 <div id="pToast"></div>
 <script src="catalogue.js?v=20261017"></script>
 <script src="app.js?v=20261031"></script>
-<script src="comptes-pro.js?v=20261031d"></script>
+<script src="comptes-pro.js?v=20261105a"></script>
 <script src="comptabilite.js?v=20261004"></script>
 <script src="fl-securite.js?v=20261004"></script>
 <script id="fl-v39-nav-clean">
