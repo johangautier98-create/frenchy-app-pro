@@ -7,7 +7,7 @@
 var SIG_DEFAULT={
   nom:'Mr Gautier Johan',societe:'GAUTIER FISHING \u2013 FRENCHY LEURRES',
   adresse:'8, chemin campagne roque\n13110 Port-de-Bouc',
-  tel:'07 83 21 07 58',email:'info@frenchyleurres.fr',
+  tel:'07 83 21 07 58',email:'contact@gautier-fishing.com',
   site:'https://www.frenchyleurres.fr',siret:'48359538500038',tva:'FR 0L483595385'
 };
 
@@ -154,7 +154,7 @@ function buildEmailHtml(nom,prenom,login,pwd,notes,sepaLien){
     +'<table width="100%" cellpadding="0" cellspacing="0"><tr>'
     +'<td><div style="font-size:14px;font-weight:900;color:#1a1a1a;margin-bottom:3px;">Mr Gautier Johan</div>'
     +'<div style="font-size:12px;color:#555;margin-bottom:8px;">GAUTIER FISHING \u2014 FRENCHY LEURRES</div>'
-    +'<div style="font-size:12px;color:#888;line-height:1.8;">8, chemin campagne roque \u2014 13110 Port-de-Bouc<br>07 83 21 07 58<br>info@frenchyleurres.fr<br>www.frenchyleurres.fr<br>SIRET : 48359538500038</div></td>'
+    +'<div style="font-size:12px;color:#888;line-height:1.8;">8, chemin campagne roque \u2014 13110 Port-de-Bouc<br>07 83 21 07 58<br>contact@gautier-fishing.com<br>www.frenchyleurres.fr<br>SIRET : 48359538500038</div></td>'
     +'<td align="right" valign="top" style="font-size:36px;">\ud83c\udfa3</td>'
     +'</tr></table></td></tr>'
     +'<tr><td style="background:#1a1a1a;padding:14px 40px;text-align:center;"><div style="color:#555;font-size:11px;">Frenchy Leurres \u00b7 Port-de-Bouc \u00b7 <span style="color:#e8c840;">frenchyleurres.fr</span></div></td></tr>'
@@ -270,7 +270,7 @@ function buildSepaEmailHtml(nom,prenom,sepaLien){
     +'<tr><td style="background:#f8f8f4;border-top:1px solid #e8e6e0;padding:22px 40px;">'
     +'<div style="font-size:14px;font-weight:900;color:#1a1a1a;margin-bottom:3px;">Mr Gautier Johan</div>'
     +'<div style="font-size:12px;color:#555;margin-bottom:8px;">GAUTIER FISHING — FRENCHY LEURRES</div>'
-    +'<div style="font-size:12px;color:#888;line-height:1.8;">8, chemin campagne roque — 13110 Port-de-Bouc<br>07 83 21 07 58<br>info@frenchyleurres.fr<br>www.frenchyleurres.fr<br>SIRET : 48359538500038</div></td></tr>'
+    +'<div style="font-size:12px;color:#888;line-height:1.8;">8, chemin campagne roque — 13110 Port-de-Bouc<br>07 83 21 07 58<br>contact@gautier-fishing.com<br>www.frenchyleurres.fr<br>SIRET : 48359538500038</div></td></tr>'
     +'</table></td></tr></table></body></html>';
 }
 window.pGenEmailSepa=function(){
