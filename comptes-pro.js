@@ -7,7 +7,7 @@
 var SIG_DEFAULT={
   nom:'Mr Gautier Johan',societe:'GAUTIER FISHING \u2013 FRENCHY LEURRES',
   adresse:'8, chemin campagne roque\n13110 Port-de-Bouc',
-  tel:'07 83 21 07 58',email:'gautierfishing@gmail.com',
+  tel:'07 83 21 07 58',email:'info@frenchyleurres.fr',
   site:'https://www.frenchyleurres.fr',siret:'48359538500038',tva:'FR 0L483595385'
 };
 
@@ -125,16 +125,16 @@ function buildEmailHtml(nom,prenom,login,pwd,notes,sepaLien){
     +'<p style="color:#3d36b8;font-size:13px;line-height:1.6;margin:0 0 14px;">Pour régler vos factures par prélèvement, activez votre compte en ligne (2 minutes, page sécurisée de notre partenaire <strong>Stripe</strong>) : frais d’activation de <strong>1 €</strong>, choisissez <strong>« Prélèvement SEPA »</strong> comme moyen de paiement et indiquez le nom de votre société et votre IBAN. Votre mandat est alors enregistré pour vos prochaines commandes.</p>'
     +'<div style="text-align:center;"><a href="'+sepaLien.replace(/"/g,'&quot;')+'" style="display:inline-block;background:#635bff;color:#fff;font-size:14px;font-weight:900;padding:12px 30px;border-radius:10px;text-decoration:none;">✍️ Activer mon compte et signer mon mandat SEPA</a></div>'
     +'</td></tr></table>'):'';
-  var condBlock=notes?('<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f8f0;border:1px solid #c8e6c9;border-radius:8px;margin-bottom:24px;"><tr><td style="padding:16px 20px;"><div style="font-size:11px;font-weight:900;color:#2e7d32;text-transform:uppercase;margin-bottom:8px;">\u2705 Vos conditions commerciales</div><p style="color:#1a5e20;font-size:13px;line-height:1.6;margin:0;">'+notes.replace(/&/g,'&amp;').replace(/\n/g,'<br>')+'</p></td></tr></table>'):'';
+  var condBlock=notes?('<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f8f0;border:1px solid #c8e6c9;border-radius:8px;margin-bottom:24px;"><tr><td style="padding:16px 20px;"><div style="font-size:11px;font-weight:900;color:#2e7d32;text-transform:uppercase;margin-bottom:8px;">Vos conditions commerciales</div><p style="color:#1a5e20;font-size:13px;line-height:1.6;margin:0;">'+notes.replace(/&/g,'&amp;').replace(/\n/g,'<br>')+'</p></td></tr></table>'):'';
   return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head>'
     +'<body style="margin:0;padding:0;background:#f4f4f0;font-family:Helvetica Neue,Arial,sans-serif;">'
     +'<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f0;padding:32px 16px;"><tr><td align="center">'
     +'<table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10);">'
     +'<tr><td style="background:#1a1a1a;padding:32px 40px;text-align:center;"><div style="font-size:40px;margin-bottom:10px;">\ud83c\udfa3</div><div style="color:#e8c840;font-size:22px;font-weight:900;letter-spacing:1px;">FRENCHY LEURRES</div><div style="color:#666;font-size:12px;margin-top:4px;letter-spacing:2px;text-transform:uppercase;">Leurres artisanaux \u2014 Port-de-Bouc</div></td></tr>'
-    +'<tr><td style="background:#e8c840;padding:10px 40px;text-align:center;"><div style="color:#1a1a1a;font-size:12px;font-weight:900;">\u2705 VOTRE COMPTE PROFESSIONNEL EST CR\u00c9\u00c9</div></td></tr>'
+    +'<tr><td style="background:#e8c840;padding:10px 40px;text-align:center;"><div style="color:#1a1a1a;font-size:12px;font-weight:900;">Votre acc\u00e8s revendeur est ouvert</div></td></tr>'
     +'<tr><td style="padding:32px 40px;">'
     +'<p style="color:#1a1a1a;font-size:16px;line-height:1.6;margin:0 0 18px;">Bonjour <strong>'+prenom+'</strong>,</p>'
-    +'<p style="color:#555;font-size:14px;line-height:1.7;margin:0 0 28px;">Nous avons le plaisir de vous confirmer l\'ouverture de votre compte professionnel <strong>Frenchy Leurres</strong>. </p>'
+    +'<p style="color:#555;font-size:14px;line-height:1.7;margin:0 0 28px;">Nous avons le plaisir de vous confirmer l\'ouverture de votre compte revendeur <strong>Frenchy Leurres</strong>, avec vos tarifs professionnels déjà appliqués.</p>'
     +'<table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f8f4;border:2px solid #e8c840;border-radius:12px;margin-bottom:24px;"><tr><td style="padding:20px 24px;">'
     +'<div style="font-size:10px;font-weight:900;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">Votre compte</div>'
     +'<table width="100%" cellpadding="0" cellspacing="0">'
@@ -142,10 +142,10 @@ function buildEmailHtml(nom,prenom,login,pwd,notes,sepaLien){
     +'<tr><td style="padding:10px 0;"><span style="color:#888;font-size:13px;">Adresse email de connexion</span></td><td style="padding:10px 0;text-align:right;"><strong style="color:#1a1a1a;font-size:13px;">'+login+'</strong></td></tr>'
     +'</table></td></tr></table>'
     +'<table width="100%" cellpadding="0" cellspacing="0" style="background:#fff8e1;border-left:4px solid #e8c840;border-radius:0 8px 8px 0;margin-bottom:24px;"><tr><td style="padding:16px 20px;">'
-    +'<div style="font-size:12px;font-weight:900;color:#7a5800;margin-bottom:8px;">\ud83d\udd10 COMMENT VOUS CONNECTER (pas de mot de passe)</div>'
-    +'<p style="color:#7a5800;font-size:13px;line-height:1.7;margin:0;">1. Cliquez sur le bouton ci-dessous.<br>2. Tapez votre adresse email : <strong>'+login+'</strong><br>3. Vous recevez aussit\u00f4t un <strong>code \u00e0 6 chiffres</strong> par email : recopiez-le, c\u2019est tout.<br><br>\u00c0 chaque connexion, un nouveau code vous est envoy\u00e9. Pensez \u00e0 regarder dans vos courriers ind\u00e9sirables.</p>'
+    +'<div style="font-size:12px;font-weight:900;color:#7a5800;margin-bottom:8px;">Votre connexion en 3 \u00e9tapes</div>'
+    +'<p style="color:#7a5800;font-size:13px;line-height:1.7;margin:0;">1. Cliquez sur le bouton ci-dessous.<br>2. Tapez votre adresse email : <strong>'+login+'</strong><br>3. Vous recevez aussit\u00f4t un <strong>code \u00e0 6 chiffres</strong> par email : recopiez-le, c\u2019est tout.<br><br>Rien \u00e0 retenir : un nouveau code vous est envoy\u00e9 \u00e0 chaque connexion.</p>'
     +'</td></tr></table>'
-    +'<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;"><tr><td align="center"><a href="https://www.frenchyleurres.fr/account/login" style="display:inline-block;background:#1a1a1a;color:#e8c840;font-size:15px;font-weight:900;padding:15px 40px;border-radius:10px;text-decoration:none;">\ud83d\udd10 Acc\u00e9der \u00e0 mon compte</a></td></tr></table>'
+    +'<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;"><tr><td align="center"><a href="https://www.frenchyleurres.fr/account/login" style="display:inline-block;background:#1a1a1a;color:#e8c840;font-size:15px;font-weight:900;padding:15px 40px;border-radius:10px;text-decoration:none;">Acc\u00e9der \u00e0 mon espace revendeur</a></td></tr></table>'
     +sepaBlock
     +condBlock
     +'<p style="color:#888;font-size:13px;line-height:1.6;margin:0;">Une fois connect\u00e9, vos <strong>tarifs professionnels</strong> s\u2019affichent automatiquement.</p>'
@@ -154,7 +154,7 @@ function buildEmailHtml(nom,prenom,login,pwd,notes,sepaLien){
     +'<table width="100%" cellpadding="0" cellspacing="0"><tr>'
     +'<td><div style="font-size:14px;font-weight:900;color:#1a1a1a;margin-bottom:3px;">Mr Gautier Johan</div>'
     +'<div style="font-size:12px;color:#555;margin-bottom:8px;">GAUTIER FISHING \u2014 FRENCHY LEURRES</div>'
-    +'<div style="font-size:12px;color:#888;line-height:1.8;">\ud83d\udccd 8, chemin campagne roque \u2014 13110 Port-de-Bouc<br>\ud83d\udcde 07 83 21 07 58<br>\u2709 gautierfishing@gmail.com<br>\ud83c\udf10 www.frenchyleurres.fr<br>SIRET : 48359538500038</div></td>'
+    +'<div style="font-size:12px;color:#888;line-height:1.8;">8, chemin campagne roque \u2014 13110 Port-de-Bouc<br>07 83 21 07 58<br>info@frenchyleurres.fr<br>www.frenchyleurres.fr<br>SIRET : 48359538500038</div></td>'
     +'<td align="right" valign="top" style="font-size:36px;">\ud83c\udfa3</td>'
     +'</tr></table></td></tr>'
     +'<tr><td style="background:#1a1a1a;padding:14px 40px;text-align:center;"><div style="color:#555;font-size:11px;">Frenchy Leurres \u00b7 Port-de-Bouc \u00b7 <span style="color:#e8c840;">frenchyleurres.fr</span></div></td></tr>'
@@ -173,7 +173,7 @@ window.pGenEmail=function(){
   var sepa=(window._pSepaLien&&window._pSepaEmail===email.toLowerCase())?window._pSepaLien:'';
   var htmlContent=buildEmailHtml(nom,prenom,login,pwd,notes,sepa);
   window._pEmailHtml=htmlContent;window._pEmailTo=email;
-  window._pEmailSubject='Votre compte professionnel Frenchy Leurres est pr\u00eat \u2705';
+  window._pEmailSubject='Bienvenue chez Frenchy Leurres \u2014 votre acc\u00e8s revendeur';
   var modal=document.getElementById('modalEmail');
   if(modal){
     var meta=document.getElementById('emailModalMeta');
@@ -266,7 +266,7 @@ function buildSepaEmailHtml(nom,prenom,sepaLien){
     +'<tr><td style="background:#f8f8f4;border-top:1px solid #e8e6e0;padding:22px 40px;">'
     +'<div style="font-size:14px;font-weight:900;color:#1a1a1a;margin-bottom:3px;">Mr Gautier Johan</div>'
     +'<div style="font-size:12px;color:#555;margin-bottom:8px;">GAUTIER FISHING — FRENCHY LEURRES</div>'
-    +'<div style="font-size:12px;color:#888;line-height:1.8;">📍 8, chemin campagne roque — 13110 Port-de-Bouc<br>📞 07 83 21 07 58<br>✉ gautierfishing@gmail.com<br>🌐 www.frenchyleurres.fr<br>SIRET : 48359538500038</div></td></tr>'
+    +'<div style="font-size:12px;color:#888;line-height:1.8;">8, chemin campagne roque — 13110 Port-de-Bouc<br>07 83 21 07 58<br>info@frenchyleurres.fr<br>www.frenchyleurres.fr<br>SIRET : 48359538500038</div></td></tr>'
     +'</table></td></tr></table></body></html>';
 }
 window.pGenEmailSepa=function(){
